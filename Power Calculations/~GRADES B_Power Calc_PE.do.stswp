@@ -1,0 +1,54 @@
+* Date Modified:  22/10/25
+* Last Modified by: Umair Kiani
+* Project: GRADES - B
+
+*Parental Engagement IE
+
+* DESIGN
+* - Cluster randomized trial at the school level (clusters = schools).
+* - Outcome: standardized parent engagement index (mean 0, SD 1).
+* - Sample: k = 10 parents per school (equal in both arms).
+* - Equal allocation (1:1).
+
+***MDE
+*  Use 0.15 as a realistic, policy-meaningful target for parental engagement channels. 
+*  (e.g., Mozambique ECE + parenting ≈0.16 SD on child skills)
+
+***ICC
+* ICC taken from KPRAP evaluation study 
+
+
+clear all
+set more off
+
+local alpha  = 0.05
+local power  = 0.80
+local mde    = 0.15    // target detectable effects  
+local k      = 10     // parents per school - cluster size   
+local R2     = 0.50       
+local ICC    = 0.3586 // school level ICC - taken from KPRAP Current districts
+
+local sd = 1
+
+* Compute required # of schools (clusters) per arm
+quietly power twomeans 0 (`mde'), cluster ///
+    m1(`k') m2(`k') sd(`sd') rho(`icc') alpha(`alpha') power(`power')
+
+capture local K_arm = ceil(r(K1))
+if _rc {
+    local K_arm = ceil(r(k1))
+}
+
+local K_tot = 2*`K_arm'
+local N_arm = `K_arm'*`k'
+local N_tot = 2*`N_arm'
+
+display as result "Required schools per arm (clustered CRT): " `K_arm'
+display as text   "Total schools: " `K_tot'
+display as text   "Parents per arm (k × schools): " `N_arm'
+display as text   "Total parents: " `N_tot'
+
+* Required schools per arm (clustered): 384
+* Total schools: 768
+* Parents per arm (k × schools): 3840
+* Total parents: 7680
