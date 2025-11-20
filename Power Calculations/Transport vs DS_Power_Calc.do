@@ -47,5 +47,3 @@ local J_total = 4 * `J_cell'          // total schools across 4 cells
 display as result "Required schools per pooled arm (for each main effect): " `J_pooled'
 display as result "Required schools per cell (each of 4 arms):            " `J_cell'
 display as result "Total Year 3 schools for full 2x2 design:              " `J_total'
-
-gen id =1
