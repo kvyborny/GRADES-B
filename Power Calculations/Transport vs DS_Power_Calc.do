@@ -20,7 +20,7 @@ Cells:
 ********************************************************************/
 
 clear all
-set more off
+set more off 
 
 * Key assumptions
 local alpha  0.05        // two-sided significance level
@@ -48,3 +48,4 @@ display as result "Required schools per pooled arm (for each main effect): " `J_
 display as result "Required schools per cell (each of 4 arms):            " `J_cell'
 display as result "Total Year 3 schools for full 2x2 design:              " `J_total'
 
+gen id =1
