@@ -37,7 +37,7 @@
 
 	save "$data\Dataset\admin\emis_data.dta", replace
 	export excel using "$data\Dataset\admin\emis_data.xlsx", firstrow(variables) replace
-=
+
 
 
 ***GRADES B data clean, merge, and save***
@@ -59,6 +59,17 @@
 	duplicates tag BEMIS, gen (dup)
 	bysort BEMIS: gen dup_id = _n
 	keep if dup_id == 1 // Remove duplicates 
+	
+	rename U govt_own_building
+	rename V space_construction
+	rename W space_construction_specify
+	rename X land_available
+	rename Y donate_land 
+	rename Z play_area
+	
+	egen total_girls_PS = rowtotal (BG BH BI BJ BK BL)
+	egen total_boys_PS = rowtotal (Kachi Class1 Class2 Class3 Class4 Class5)
+	gen gender_ratio = total_boys_PS/total_girls_PS
 	
 	save "$data\Dataset\gradesb\gradesb.dta", replace
 	
@@ -96,7 +107,7 @@
 
 	*merge with the GRADES B data*
 	
-	merge 1:1 BEMIS using "$data\Dataset\gradesb\gradesb.dta", keepusing (Istheschoolfunctional)
+	merge 1:1 BEMIS using "$data\Dataset\gradesb\gradesb.dta", keepusing(Istheschoolfunctional total_girls_PS total_boys_PS gender_ratio govt_own_building space_construction space_construction_specify land_available donate_land play_area)
 	rename _merge merge_gradesb
 	
 	*merge with the SurveyAuto database*
@@ -139,17 +150,28 @@
 	gen enrollment_40_B = 1 if mean_enrol > 40 & Genderupdated == "Boys"
 	gen enrollment_60_G = 1 if mean_enrol > 60 & Genderupdated == "Girls"
 	gen enrollment_60_B = 1 if mean_enrol > 60 & Genderupdated == "Boys"
-
 	
 	*Boys schools with <5 girls 
 	egen mean_enrol_g = rowmean(KGSt  PGSt  TwoGSt  ThreeGSt  FourGSt  FiveGSt)
 	gen enrollment_5_B = 1 if mean_enrol_g <=5  &  Genderupdated == "Boys"
+	
+	egen mean_enrol_b = rowmean(KBSt  PBSt  TwoBSt  ThreeBSt  FourBSt  FiveBSt)
+	gen ratio_gender_emis = mean_enrol_b/mean_enrol_g
 	
 	*Nearest girls school is less than 1km away
 	gen nearest_girls_school_1km = 1 if distancekm > "1"
 	
 	*HQ districts
 	gen dis = 1 if District == "QUETTA " | District == "KALAT" | District == "KECH" | District == "SIBI" | District == "ZHOB" | District == "NASEER ABAD" | District == "KHARAN"
+	
+	*OOSC
+	count if enrollment_40_G == 1  & nearest_girls_school_1km == 1
+	gen OOSC_female_per = (OOSCFemale/SchoolAgePopulationFemale )*100
+	
+	count if enrollment_5_B == 1  & nearest_girls_school_1km == 1 & OOSC_female_per > 25
+	count if enrollment_5_B == 1  & nearest_girls_school_1km == 1 & OOSC_female_per > 50
+	count if enrollment_5_B == 1  & nearest_girls_school_1km == 1 & OOSC_female_per > 75
+	
 
 	*Sample size
 	
@@ -158,25 +180,40 @@
 	count if enrollment_60_G == 1  & nearest_girls_school_1km == 1 
 	count if enrollment_5_B == 1   & nearest_girls_school_1km == 1 
 	count if enrollment_40_B == 1  
-	count if enrollment_60_B == 1  
+	count if enrollment_60_B == 1 
+	count if Genderupdated == "Boys" & mean_enrol_b != 0
 
 	count if enrollment_40_G == 1  & nearest_girls_school_1km == 1 & dis == 1
 	count if enrollment_60_G == 1  & nearest_girls_school_1km == 1 & dis == 1
 	count if enrollment_5_B == 1   & nearest_girls_school_1km == 1 & dis == 1
 	count if enrollment_40_B == 1  & dis == 1
 	count if enrollment_60_B == 1  & dis == 1
+	count if Genderupdated == "Boys" & dis == 1 & mean_enrol_b != 0
 
-	count if enrollment_40_G == 1  & nearest_girls_school_1km == 1 &  merge_gradesb == 3
-	count if enrollment_60_G == 1  & nearest_girls_school_1km == 1 &  merge_gradesb == 3
-	count if enrollment_5_B == 1   & nearest_girls_school_1km == 1 &  merge_gradesb == 3
-	count if enrollment_40_B == 1  &  merge_gradesb == 3
-	count if enrollment_60_B == 1  &  merge_gradesb == 3
+	count if enrollment_40_G == 1  & nearest_girls_school_1km == 1 &  merge_gradesb == 3 & Istheschoolfunctional == "Yes"
+	count if enrollment_60_G == 1  & nearest_girls_school_1km == 1 &  merge_gradesb == 3 & Istheschoolfunctional == "Yes"
+	count if enrollment_5_B == 1   & nearest_girls_school_1km == 1 &  merge_gradesb == 3 & Istheschoolfunctional == "Yes"
+	count if enrollment_40_B == 1  &  merge_gradesb == 3 & Istheschoolfunctional == "Yes"
+	count if enrollment_60_B == 1  &  merge_gradesb == 3 & Istheschoolfunctional == "Yes"
+	count if Genderupdated == "Boys"  &  merge_gradesb == 3 & Istheschoolfunctional == "Yes" & mean_enrol_b != 0
 	
-	count if enrollment_40_G == 1  & nearest_girls_school_1km == 1 & dis == 1 &  merge_gradesb == 3
-	count if enrollment_60_G == 1  & nearest_girls_school_1km == 1 & dis == 1 &  merge_gradesb == 3
-	count if enrollment_5_B == 1   & nearest_girls_school_1km == 1 & dis == 1 &  merge_gradesb == 3
-	count if enrollment_40_B == 1  & dis == 1 &  merge_gradesb == 3
-	count if enrollment_60_B == 1  & dis == 1 &  merge_gradesb == 3
+	
+	count if enrollment_40_G == 1  & nearest_girls_school_1km == 1 & dis == 1 &  merge_gradesb == 3 & Istheschoolfunctional == "Yes"
+	count if enrollment_60_G == 1  & nearest_girls_school_1km == 1 & dis == 1 &  merge_gradesb == 3 & Istheschoolfunctional == "Yes"
+	count if enrollment_5_B == 1   & nearest_girls_school_1km == 1 & dis == 1 &  merge_gradesb == 3 & Istheschoolfunctional == "Yes"
+	count if enrollment_40_B == 1  & dis == 1 &  merge_gradesb == 3 & Istheschoolfunctional == "Yes"
+	count if enrollment_60_B == 1  & dis == 1 &  merge_gradesb == 3 & Istheschoolfunctional == "Yes"
+	count if Genderupdated == "Boys"  & dis == 1 &  merge_gradesb == 3 & Istheschoolfunctional == "Yes" & mean_enrol_b != 0
+	
+	tab space_construction 
+	tab Istheschoolfunctional
+	count if gender_ratio >=0.75 & gender_ratio <=1.25
+	
+	tab space_construction if dis ==1
+	tab Istheschoolfunctional if dis ==1
+	count if gender_ratio >=0.75 & gender_ratio <=1.25 & dis ==1
+	
+	
 
 save "$data\Dataset\admin\emis_database.dta", replace
 
