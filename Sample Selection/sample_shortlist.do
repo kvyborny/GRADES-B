@@ -1,6 +1,6 @@
 *Author: Hijab Waheed
 *Date: 24-10-2025
-*Purpose: Finding the nearest schools to the Grade B schools using EMIS data
+*Purpose: School list
 
 ***Globals
 
@@ -25,13 +25,16 @@
 	rename BemisCode BEMIS
 
 	merge 1:1 BEMIS using "$data\Dataset\admin\bemis_coordinates.dta", keepusing(GPSY GPSX) // Merge coordinates from another file
-	//13235
 	rename _merge _merge1
+
+	//13220
 	
 	merge 1:1 BEMIS using "$data\Dataset\admin\bemis_coordinates_1.dta", keepusing(GPSY GPSX) update //  Merge coordinates from another file
-	//14793
+	//15362
 	
 	keep if GPSX !=. // dropping the schools for which we do not have coordinates
+	//14778
+	
 	destring, replace
 	keep BEMIS SchoolName District Tehsil SubTehsil UC VillageName SchoolContactNo Location Genderupdated SchoolLevel Shift GPSY GPSX // keeping important vars only (for the purpose of python code only)
 
@@ -73,6 +76,7 @@
 	
 	save "$data\Dataset\gradesb\gradesb.dta", replace
 	
+	/*
 	*merge surveyauto database
 	rename BEMIS EMISCode
 	merge 1:1 EMISCode using "$data\Dataset\Database\database.dta"
@@ -81,9 +85,16 @@
 	keep if merge_database == 1 | merge_database == 3
 	
 	save "$data\Dataset\gradesb\gradesb_surveyauto.dta", replace
+	*/
+***STEP B data***
+	import excel "$data\Admin Data\STEP B\STEP-B_Baseline_Survey_Flatsheet.xlsx", sheet("STEP-B Baseline Survey") firstrow clear
+	
+	isid BEMIS
+	destring BEMIS, replace force
+	
+	save "$data\Dataset\gradesb\stepsb.dta", replace
 	
 
-	
 ***Python data output save***
 
 	*Import the output file and save as .dta file
@@ -102,13 +113,20 @@
 
 	*merge with the output file of python for the closest schools coordinates*
 
-	merge 1:1 BEMIS using "$data\Dataset\nearest_girls_school\closest_schools.dta", keepusing(schoolname gender schoollatitude schoollongitude closestschool closestschoolemiscode schoollongitude closestschoollongitude distancekm)
+	merge 1:1 BEMIS using "$data\Dataset\nearest_girls_school\closest_schools.dta", keepusing(schoolname gender schoollatitude schoollongitude closestschool closestschoolemiscode closestschoollatitude closestschoollongitude distancekm)
 	rename _merge merge_closestschool
 
 	*merge with the GRADES B data*
 	
 	merge 1:1 BEMIS using "$data\Dataset\gradesb\gradesb.dta", keepusing(Istheschoolfunctional total_girls_PS total_boys_PS gender_ratio govt_own_building space_construction space_construction_specify land_available donate_land play_area)
 	rename _merge merge_gradesb
+	
+	*merge with STEPS B data*
+	
+	merge 1:1 BEMIS using "$data\Dataset\gradesb\stepsb.dta", keepusing (BEMIS)
+	rename _merge merge_stepb
+	
+	gen stepb = 1 if merge_stepb == 3
 	
 	*merge with the SurveyAuto database*
 	rename BEMIS EMISCode
@@ -150,16 +168,17 @@
 	gen enrollment_40_B = 1 if mean_enrol > 40 & Genderupdated == "Boys"
 	gen enrollment_60_G = 1 if mean_enrol > 60 & Genderupdated == "Girls"
 	gen enrollment_60_B = 1 if mean_enrol > 60 & Genderupdated == "Boys"
-
-	egen mean_enrol_b = rowmean(KBSt  PBSt  TwoBSt  ThreeBSt  FourBSt  FiveBSt)
-	gen ratio_gender_emis = mean_enrol_b/mean_enrol_g
 	
 	*Boys schools with <5 girls 
 	egen mean_enrol_g = rowmean(KGSt  PGSt  TwoGSt  ThreeGSt  FourGSt  FiveGSt)
 	gen enrollment_5_B = 1 if mean_enrol_g <=5  &  Genderupdated == "Boys"
 	
-	*Nearest girls school is less than 1km away
-	gen nearest_girls_school_1km = 1 if distancekm > "1"
+	egen mean_enrol_b = rowmean(KBSt  PBSt  TwoBSt  ThreeBSt  FourBSt  FiveBSt)
+	gen ratio_gender_emis = mean_enrol_b/mean_enrol_g
+	
+	*Nearest girls school is more than 1km away
+	destring distancekm, replace force
+	gen nearest_girls_school_1km = 1 if distancekm >= 1
 	
 	*HQ districts
 	gen dis = 1 if District == "QUETTA " | District == "KALAT" | District == "KECH" | District == "SIBI" | District == "ZHOB" | District == "NASEER ABAD" | District == "KHARAN"
@@ -168,14 +187,85 @@
 	count if enrollment_40_G == 1  & nearest_girls_school_1km == 1
 	gen OOSC_female_per = (OOSCFemale/SchoolAgePopulationFemale )*100
 	
-	count if enrollment_5_B == 1  & nearest_girls_school_1km == 1 & OOSC_female_per > 25
-	count if enrollment_5_B == 1  & nearest_girls_school_1km == 1 & OOSC_female_per > 50
-	count if enrollment_5_B == 1  & nearest_girls_school_1km == 1 & OOSC_female_per > 75
+	*DS
+	gen DS = 1 if enrollment_5_B == 1   & nearest_girls_school_1km == 1 
+
+	
+	*Distance between school and centroid
+	
+	geodist schoollatitude schoollongitude centroid_latitude centroid_longitude , generate(dist_school_centroid)
+	gen Trans = 1 if dist_school_centroid >1.5 & Genderupdated == "Girls" & mean_enrol_g != 0
+	
+	geodist centroid_latitude centroid_longitude closestschoollatitude closestschoollongitude, generate(dist_centreoid_nearestgirlschool)
+	
+	count if DS == 1 & dist_centreoid_nearestgirlschool >1.5 & nearest_girls_school_1km == 1
+	
+	*Closest girls schools to selected boys school for transport 
+	
+	preserve
+	 
+	gen closestschoolemiscode1 = closestschoolemiscode if dist_centreoid_nearestgirlschool >1.5 & nearest_girls_school_1km == 1 & closestschoolemiscode !=.  
+	bysort closestschoolemiscode1: gen dup_id_trans = _n
+	keep if dup_id_trans == 1
+	keep if closestschoolemiscode1 !=.
+	drop EMISCode
+	rename closestschoolemiscode EMISCode
+
+	tempfile transport_girls
+	save `transport_girls'
+	
+	restore 
+	
+	merge 1:1 EMISCode using `transport_girls', keepusing (dup_id_trans)
+	rename _merge merge_transport_girls
+	gen transport_girls = 1 if merge_transport_girls == 3
+
+	
+	***Sample count***
+	
+	*Double shift 
+	
+	count if DS == 1 
+	count if DS == 1 & dist_centreoid_nearestgirlschool >1.5 & nearest_girls_school_1km == 1 // DS + Trans 
+	
+	count if DS == 1 & SpaceForNewRooms == "Yes" 
+	count if DS == 1 & FunctionalStatus == "Functional" 
+	count if DS == 1 & stepb !=1
+	count if DS == 1 & SpaceForNewRooms == "Yes" & FunctionalStatus == "Functional" & stepb !=1
+
+	count if DS == 1 & dist_centreoid_nearestgirlschool >1.5 & nearest_girls_school_1km == 1 & SpaceForNewRooms == "Yes" 
+	count if DS == 1 & dist_centreoid_nearestgirlschool >1.5 & nearest_girls_school_1km == 1 & FunctionalStatus == "Functional"  
+	count if DS == 1 & dist_centreoid_nearestgirlschool >1.5 & nearest_girls_school_1km == 1 & stepb !=1
+	count if DS == 1 & dist_centreoid_nearestgirlschool >1.5 & nearest_girls_school_1km == 1 & stepb !=1 
+
+	count if DS == 1 & dist_centreoid_nearestgirlschool >=1.5 & OOSC_female_per>10
+	count if DS == 1 & dist_centreoid_nearestgirlschool >=1.5 & OOSC_female_per>25
+	count if DS == 1 & dist_centreoid_nearestgirlschool >=1.5 & OOSC_female_per>50
+	count if DS == 1 & dist_centreoid_nearestgirlschool >=1.5 & OOSC_female_per>75
 	
 
-	*Sample size
+	*Transport 
+	count if transport_girls == 1 
+	
+	count if transport_girls == 1 & SpaceForNewRooms == "Yes" 
+	count if transport_girls == 1 & FunctionalStatus == "Functional" 
+	count if transport_girls == 1 & stepb !=1
+	count if transport_girls == 1 & SpaceForNewRooms == "Yes" & FunctionalStatus == "Functional" & stepb !=1
+
+	
+	*ECE/Primary Education
+	
+	tab space_construction 
+	tab Istheschoolfunctional
+	
+
+	count if DS == 1 & dist_centreoid_nearestgirlschool >=1.5 & nearest_girls_school_1km == 1 & merge_gradesb == 3 & space_construction == "Yes" & Istheschoolfunctional == "Yes" & stepb != 1
+
+	count if DS == 1 & dist_centreoid_nearestgirlschool >=1.5 & nearest_girls_school_1km == 1 & SpaceForNewRooms == "Yes" & FunctionalStatus == "Functional" & stepb !=1
 	
 	
+/*
+*Sample*
 	count if enrollment_40_G == 1  & nearest_girls_school_1km == 1 
 	count if enrollment_60_G == 1  & nearest_girls_school_1km == 1 
 	count if enrollment_5_B == 1   & nearest_girls_school_1km == 1 
@@ -204,17 +294,9 @@
 	count if enrollment_40_B == 1  & dis == 1 &  merge_gradesb == 3 & Istheschoolfunctional == "Yes"
 	count if enrollment_60_B == 1  & dis == 1 &  merge_gradesb == 3 & Istheschoolfunctional == "Yes"
 	count if Genderupdated == "Boys"  & dis == 1 &  merge_gradesb == 3 & Istheschoolfunctional == "Yes" & mean_enrol_b != 0
-	
-	tab space_construction 
-	tab Istheschoolfunctional
-	count if gender_ratio >=0.75 & gender_ratio <=1.25
-	
-	tab space_construction if dis ==1
-	tab Istheschoolfunctional if dis ==1
-	count if gender_ratio >=0.75 & gender_ratio <=1.25 if dis ==1
+*/
 	
 	
-
 save "$data\Dataset\admin\emis_database.dta", replace
 
 
