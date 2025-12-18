@@ -32,7 +32,7 @@ import excel "$data\Admin Data\EMIS Data\Balochistan EMIS Flatsheet 2024-25.xlsx
 	egen girls_enrol_p = rowtotal(`girls_p')
 	egen boys_enrol_p = rowtotal(`boys_p')
 	
-	keep BEMIS SchoolName Genderupdated SchoolLevel FunctionalStatus District Tehsil ///
+	keep BEMIS SchoolName Genderupdated SchoolLevel FunctionalStatus District Tehsil Location ///
 	SubTehsil UC VillageName Genderupdated SchoolLevel FunctionalStatus girls_enrol_p boys_enrol_p // keep only relevant vars
 	
 	tempfile emis_flatsheet
