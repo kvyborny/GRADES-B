@@ -27,6 +27,11 @@ use "$data\Dataset\admin\emis_final_clean.dta", clear 							// prepared emis to
 	ren District district
 	ren FunctionalStatus functionalstatus
 	ren Location location
+	ren SpaceForNewRooms space_new_room
+	ren SchoolOwnedBy school_owned_by
+	
+	gen overcrowded_girls_school = 1 if  enrol_per_room >=40 & gender == "Girls"
+
 
 	tempfile emis
 	sa `emis'
@@ -34,7 +39,8 @@ use "$data\Dataset\admin\emis_final_clean.dta", clear 							// prepared emis to
 import delimited "$data\Dataset\osrm\DS_longlist_for_PMU.csv", clear			// got the missing vars from emis using emis id for the DS school list
 	ren emiscode schoolemiscode
 	keep schoolemiscode district schoollevel gender latitude longitude functionalstatus
-	merge 1:1 schoolemiscode using `emis', keepusing (schoolname uc subtehsil villagename tehsil location)
+	gen intervention = "Double shift"
+	merge 1:1 schoolemiscode using `emis', keepusing (schoolname uc subtehsil villagename tehsil location space_new_room school_owned_by girls_enrol_p boys_enrol_p assessment_done )
 	keep if _m == 3
 	drop _m
 	
@@ -44,14 +50,15 @@ import delimited "$data\Dataset\osrm\DS_longlist_for_PMU.csv", clear			// got th
 import delimited "$data\Dataset\osrm\TE_longlist_high_conf_for_PMU.csv", clear	//cleaned the TE list to match the vars for appending
 
 	drop te_isolated_high_conf needs_manual_check 
+	gen intervention = "Transport"
 	
-	merge 1:1 schoolemiscode using `emis', keepusing (location)
+	merge 1:1 schoolemiscode using `emis', keepusing (location space_new_room school_owned_by girls_enrol_p boys_enrol_p assessment_done)
 	keep if _m == 3
 	drop _m
 	
 	append using `ds_list', gen(check_append)									// appended the DS list
-	drop check_append
-
-
+	drop check_append	
+	
+	
 	save "$data\Dataset\admin\long_list.dta", replace							//saving .dta file
 	export delimited using "$data\Dataset\admin\long_list.csv", replace			//saving the csv file
