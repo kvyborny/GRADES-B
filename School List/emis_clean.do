@@ -23,6 +23,8 @@ import excel "$data\Admin Data\EMIS Data\Balochistan EMIS Flatsheet 2024-25.xlsx
 
 	rename BemisCode BEMIS
 	
+	*Enrollment from Kachi - Grade 5
+	
 	local girls_p KGSt PGSt GSt DS DW EA
 	local boys_p KBSt PBSt BSt DQ DU DY
 	
@@ -30,10 +32,24 @@ import excel "$data\Admin Data\EMIS Data\Balochistan EMIS Flatsheet 2024-25.xlsx
 	destring `boys_p', replace force 
 	
 	egen girls_enrol_p = rowtotal(`girls_p')
-	egen boys_enrol_p = rowtotal(`boys_p')
+	egen boys_enrol_p= rowtotal(`boys_p')
 	
+	*Enrollment from Kachi - Grade 12
+	
+	local girls_total KGSt PGSt GSt DS DW EA EE EI EM EQ EU EY FC
+	local boys_total KBSt PBSt BSt DQ DU DY EC EG EK EO ES EW FA
+	
+	destring `girls_total', replace force
+	destring `boys_total', replace force 
+	
+	egen girls_enrol_total = rowtotal(`girls_total')
+	egen boys_enrol_total = rowtotal(`boys_total')	
+	
+	gen enrol_per_room = (girls_enrol_total + boys_enrol_total)/TotalRooms
+	replace enrol_per_room = 0 if enrol_per_room ==.
+
 	keep BEMIS SchoolName Genderupdated SchoolLevel FunctionalStatus District Tehsil Location ///
-	SubTehsil UC VillageName Genderupdated SchoolLevel FunctionalStatus girls_enrol_p boys_enrol_p // keep only relevant vars
+	SubTehsil UC VillageName Genderupdated SchoolLevel FunctionalStatus girls_enrol_p boys_enrol_p girls_enrol_total boys_enrol_total TotalRooms enrol_per_room SpaceForNewRooms SchoolOwnedBy // keep only relevant vars
 	
 	tempfile emis_flatsheet
 	sa `emis_flatsheet'
@@ -180,7 +196,7 @@ import excel "$data\Admin Data\BHCIP\BHCIP_edited.xlsx", sheet("BHCIP 5 District
 	
 	*N=14,059
 	
-	
+
 ***Cleaning gender variable 
 
 	gen gender = "Girls" if regexm(SchoolName, "^GG")
@@ -363,7 +379,45 @@ import excel "$data\Admin Data\BHCIP\BHCIP_edited.xlsx", sheet("BHCIP 5 District
 	replace UC = "" if inlist(UC, ".", "N/A", "NA", "NOT EXISTING", "NULL", "NONE")
 	replace UC = "" if inlist(UC, "(MANI KHAWA )", "0", "21", "37", "48", "AAA")
 	
+	tempfile emis_clean
+	sa `emis_clean'
+	
+***Tagging already assessed schools
 
+	use "$data\Dataset\gradesb\gradesb.dta", clear
+	ren BEMIS EMISCode
+	keep EMISCode
+	
+	merge 1:1 EMISCode using `emis_clean'
+	
+	gen assessment_done =  "Yes" if _m == 3
+	replace assessment_done = "No" if _m !=3
+	drop _m 
 	
 	save "$data\Dataset\admin\emis_final_clean.dta", replace
 	export delimited using "$data\Dataset\admin\emis_final_clean.csv", replace
+	
+	keep EMISCode SchoolName District Tehsil SubTehsil UC SchoolLevel FunctionalStatus SchoolOwnedBy SpaceForNewRooms girls_enrol_p boys_enrol_p enrol_per_room Latitude Longitude gender assessment_done girls_enrol_total boys_enrol_total TotalRooms
+	keep if enrol_per_room >=40 & gender == "Girls"
+	
+	rename EMISCode schoolemiscode
+	merge 1:1 schoolemiscode using "$data\Dataset\admin\long_list.dta"
+	
+	/* 
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                         8,074
+        from master                       368  (_merge==1)
+        from using                      7,706  (_merge==2)
+
+    Matched                               149  (_merge==3)
+	*/
+	drop if _m == 2
+	gen transport_eligible = "Yes" if _m == 3
+	replace transport_eligible = "No" if _m ==1
+	drop _m 	
+	drop schoolname district tehsil uc subtehsil villagename schoollevel functionalstatus latitude longitude intervention location school_owned_by space_new_room
+	
+	export delimited using "$data\Dataset\admin\overcrowded_girls_schools.csv", replace
+
+	
