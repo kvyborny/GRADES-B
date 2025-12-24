@@ -204,6 +204,7 @@ import excel "$data\Admin Data\BHCIP\BHCIP_edited.xlsx", sheet("BHCIP 5 District
 	replace gender = Genderupdated if Genderupdated == "Co-Education"
 	replace gender = Genderupdated if regexm(SchoolName, "^GP")
 	tab Genderupdated gender
+	gen gender_changed = 1 if Genderupdated != gender
 	drop Genderupdated
 	
 ***Tehsil cleaning
@@ -397,7 +398,8 @@ import excel "$data\Admin Data\BHCIP\BHCIP_edited.xlsx", sheet("BHCIP 5 District
 	save "$data\Dataset\admin\emis_final_clean.dta", replace
 	export delimited using "$data\Dataset\admin\emis_final_clean.csv", replace
 	
-	keep EMISCode SchoolName District Tehsil SubTehsil UC SchoolLevel FunctionalStatus SchoolOwnedBy SpaceForNewRooms girls_enrol_p boys_enrol_p enrol_per_room Latitude Longitude gender assessment_done girls_enrol_total boys_enrol_total TotalRooms
+	preserve
+	keep EMISCode SchoolName District Tehsil SubTehsil UC SchoolLevel FunctionalStatus SchoolOwnedBy SpaceForNewRooms girls_enrol_p boys_enrol_p enrol_per_room Latitude Longitude gender assessment_done girls_enrol_total boys_enrol_total TotalRooms gender_changed
 	keep if enrol_per_room >=40 & gender == "Girls"
 	
 	rename EMISCode schoolemiscode
@@ -419,5 +421,15 @@ import excel "$data\Admin Data\BHCIP\BHCIP_edited.xlsx", sheet("BHCIP 5 District
 	drop schoolname district tehsil uc subtehsil villagename schoollevel functionalstatus latitude longitude intervention location school_owned_by space_new_room
 	
 	export delimited using "$data\Dataset\admin\overcrowded_girls_schools.csv", replace
+	
+	restore
+	
+	keep if gender_changed == 1
+	
+	drop SchoolLevel FunctionalStatus SchoolOwnedBy SpaceForNewRooms TotalRooms girls_enrol_p boys_enrol_p girls_enrol_total boys_enrol_total enrol_per_room Latitude Longitude gender_changed assessment_done 
+	
+	export delimited using "$data\Dataset\admin\gender_changed.csv", replace
 
+	
+	
 	
