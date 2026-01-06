@@ -1,5 +1,5 @@
 *Author: Umair Kiani/ Hijab Waheed
-*Date: 16-12-2025
+*Date: 05-01-2026
 *Purpose: School list for GRADES B
 
 ***Globals
@@ -161,6 +161,7 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
     -----------------------------------------
 	*/
 	gen long_list = 1 if _m == 3
+	replace long_list = 0 if _m == 2
 	drop _m 
 	
 	count if emis_v_sa ==0 & long_list==1 // schools with same coordinates
@@ -204,4 +205,4 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
 	geodist Y_emis X_emis Y_rtsm X_rtsm, gen (emis_v_rtsm)
 	
 save "$data\Dataset\admin\coordinates_checks.dta", replace							//saving .dta file
-export delimited using "$data\Dataset\admin\lcoordinates_checks.csv", replace			//saving the csv file
+export delimited using "$data\Dataset\admin\coordinates_checks.csv", replace			//saving the csv file

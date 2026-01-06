@@ -63,4 +63,3 @@ import delimited "$data\Dataset\osrm\TE_longlist_high_conf_for_PMU.csv", clear	/
 	save "$data\Dataset\admin\long_list.dta", replace							//saving .dta file
 	export delimited using "$data\Dataset\admin\long_list.csv", replace			//saving the csv file
 	
-*check on how different the coordinates (EMIS v Surveyauto)
