@@ -161,6 +161,7 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
     -----------------------------------------
 	*/
 	gen long_list = 1 if _m == 3
+	replace long_list = 0 of 
 	drop _m 
 	
 	count if emis_v_sa ==0 & long_list==1 // schools with same coordinates
@@ -203,5 +204,5 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
 	geodist Y_sa X_sa Y_rtsm X_rtsm, gen (sa_v_rtsm)
 	geodist Y_emis X_emis Y_rtsm X_rtsm, gen (emis_v_rtsm)
 	
-save "$data\Dataset\admin\coordin.dta", replace							//saving .dta file
-export delimited using "$data\Dataset\admin\long_list.csv", replace			//saving the csv file
+save "$data\Dataset\admin\coordinates_checks.dta", replace							//saving .dta file
+export delimited using "$data\Dataset\admin\coordinates_checks.csv", replace			//saving the csv file
