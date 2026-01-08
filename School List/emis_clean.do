@@ -17,7 +17,7 @@
 	}
 
 
-***Merging for coordinates
+***EMIS: Variables generation
 
 import excel "$data\Admin Data\EMIS Data\Balochistan EMIS Flatsheet 2024-25.xlsx", sheet("16-8-25") firstrow clear
 
@@ -53,8 +53,13 @@ import excel "$data\Admin Data\EMIS Data\Balochistan EMIS Flatsheet 2024-25.xlsx
 	
 	tempfile emis_flatsheet
 	sa `emis_flatsheet'
-	
-import excel "$data\Admin Data\EMIS Data\emis_coordinates.xlsx", sheet("Sheet1") firstrow clear // first emis coordinates file
+
+***merging for coordinates 
+
+/*	This section is commented out due to inconsistencies between SurveyAuto (older census-based coordinates) and EMIS coordinates. Significant discrepancies were found for ~5,000 schools, so we now rely on coordinates collected by the monitoring team (RTSM).
+import excel 
+
+"$data\Admin Data\EMIS Data\emis_coordinates.xlsx", sheet("Sheet1") firstrow clear // first emis coordinates file
 
 	ren GPSY Y
 	ren GPSX X
@@ -154,11 +159,11 @@ import excel "$data\Admin Data\BHCIP\BHCIP_edited.xlsx", sheet("BHCIP 5 District
 	
 ***Using Survey Auto's school coordinates
 	
-	use "$data\Dataset\database\database.dta", clear
+	use "$data\Dataset\dashboard\dashboard.dta", clear
 	
 	keep EMISCode Latitude Longitude SchoolName
 	
-	merge 1:1 EMISCode using `master_2' 										// Merge surveyauto database to get their coordinates 
+	merge 1:1 EMISCode using `master_2' 										// Merge surveyauto dashboard data to get their coordinates 
 	
 	/*
 	 Result                      Number of obs
@@ -180,7 +185,7 @@ import excel "$data\Admin Data\BHCIP\BHCIP_edited.xlsx", sheet("BHCIP 5 District
 	tempfile extra_schools
 	sa `extra_schools'
 	
-	use "$data\Dataset\database\database.dta", clear
+	use "$data\Dataset\dashboard\dashboard.dta", clear
 
 	append using `extra_schools'
 	keep EMISCode Latitude Longitude	
@@ -193,11 +198,89 @@ import excel "$data\Admin Data\BHCIP\BHCIP_edited.xlsx", sheet("BHCIP 5 District
 	keep if _m==3
 	drop _merge
 	ren SchoolNameemis SchoolName
-
 	
 	*N=14,059
-	
 
+	*/
+	import excel "C:\Users\wb635947\OneDrive - WBG\Jayati Sethi's files - Pakistan GRADES-B\Data\Admin Data\Monitoring coordinates\RTSM sheeet with GPS.xlsx", sheet("Sheet1") firstrow clear
+	
+	rename BemisCode BEMIS
+	keep BEMIS XCord YCord
+	
+	merge 1:1 BEMIS using `emis_flatsheet'
+	/*
+	 Result                      Number of obs
+    -----------------------------------------
+    Not matched                           582
+        from master                        15  (_merge==1)
+        from using                        567  (_merge==2)
+
+    Matched                            14,795  (_merge==3)
+    -----------------------------------------
+
+	*/
+	rename _merge merge_rtsm
+	tempfile emis_flatsheet1
+	sa `emis_flatsheet1'
+	
+	
+import excel "$data\Admin Data\EMIS Data\emis_coordinates.xlsx", sheet("Sheet1") firstrow clear // first emis coordinates file
+
+	ren GPSY Y
+	ren GPSX X
+	
+	tempfile coord																					
+	sa `coord'
+
+import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main sheet") firstrow clear // second emis coordinates file
+
+	ren lat Y
+	ren C X
+	keep BEMIS X Y
+	destring BEMIS, force replace
+	append using `coord'
+	duplicates report BEMIS
+	drop if X==.
+	drop if Y==.
+
+	tempfile coord_m																				// combined emis coordinates with other vars
+	sa `coord_m'
+
+	keep BEMIS X Y
+
+	tempfile coordinates																			// coordinates with just X Y and EMIS
+	sa `coordinates'
+	
+	merge 1:1 BEMIS using `emis_flatsheet1'
+	
+	/*
+	   Result                      Number of obs
+    -----------------------------------------
+    Not matched                           584
+        from master                         0  (_merge==1)
+        from using                        584  (_merge==2)
+
+    Matched                            14,793  (_merge==3)
+	-----------------------------------------
+	*/
+	drop _m
+	drop if X ==. & Y ==. & XCord ==. & YCord ==. 								// dropping the schools for which we dont have coordinates in both RTSM and EMIS
+	rename X X_emis
+	rename Y Y_emis
+	
+	rename XCord Y 																//This was a mistake from the admin data, so fixing it here
+	rename YCord X
+	
+	replace Y = Y_emis if Y==.
+	replace X = X_emis if X==.
+	
+	rename Y Latitude
+	rename X Longitude
+	
+	drop if BEMIS == 10222 | BEMIS == 3248										// These two schools are dropped because the difference between the coordinates of EMIS and SurveyAuto is more than 3km - we can not rely on these coordinates from EMIS
+
+	rename BEMIS EMISCode 
+	
 ***Cleaning gender variable 
 
 	gen gender = "Girls" if regexm(SchoolName, "^GG")
@@ -386,8 +469,8 @@ import excel "$data\Admin Data\BHCIP\BHCIP_edited.xlsx", sheet("BHCIP 5 District
 	
 ***Tagging already assessed schools
 
-	use "$data\Dataset\gradesb\gradesb.dta", clear
-	ren BEMIS EMISCode
+	use "$data\Dataset\prelim_gradesb\prelim_gradesb.dta", clear
+	rename BEMIS EMISCode
 	keep EMISCode
 	
 	merge 1:1 EMISCode using `emis_clean'
@@ -399,6 +482,7 @@ import excel "$data\Admin Data\BHCIP\BHCIP_edited.xlsx", sheet("BHCIP 5 District
 	save "$data\Dataset\admin\emis_final_clean.dta", replace
 	export delimited using "$data\Dataset\admin\emis_final_clean.csv", replace
 	
+***Generating a separate csv file for overcrowded girls school
 	preserve
 	keep EMISCode SchoolName District Tehsil SubTehsil UC SchoolLevel FunctionalStatus SchoolOwnedBy SpaceForNewRooms girls_enrol_p boys_enrol_p enrol_per_room Latitude Longitude gender assessment_done girls_enrol_total boys_enrol_total TotalRooms gender_changed
 	keep if enrol_per_room >=40 & gender == "Girls"
@@ -425,12 +509,14 @@ import excel "$data\Admin Data\BHCIP\BHCIP_edited.xlsx", sheet("BHCIP 5 District
 	
 	restore
 	
+	preserve
+***Generating a separate file where we fixed the gender - to be sent to PMU to verify
 	keep if gender_changed == 1
 	
 	drop SchoolLevel FunctionalStatus SchoolOwnedBy SpaceForNewRooms TotalRooms girls_enrol_p boys_enrol_p girls_enrol_total boys_enrol_total enrol_per_room Latitude Longitude gender_changed assessment_done 
 	
 	export delimited using "$data\Dataset\admin\gender_changed.csv", replace
 
-	
+	restore
 	
 	

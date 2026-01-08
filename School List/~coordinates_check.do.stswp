@@ -1,5 +1,5 @@
 *Author: Umair Kiani/ Hijab Waheed
-*Date: 16-12-2025
+*Date: 05-01-2026
 *Purpose: School list for GRADES B
 
 ***Globals
@@ -113,13 +113,13 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
 
 ***Using Survey Auto's school coordinates
 	
-	use "$data\Dataset\database\database.dta", clear
+	use "$data\Dataset\dashboard\dashboard.dta", clear
 	
 	keep EMISCode Latitude Longitude SchoolName
 	duplicates report EMISCode
 	duplicates report Latitude Longitude
 	
-	merge 1:1 EMISCode using `master' 									// Merge surveyauto database to get their coordinates 
+	merge 1:1 EMISCode using `master' 									// Merge surveyauto dashboard data to get their coordinates 
 	
 	/*
 	 Result                      Number of obs
@@ -161,7 +161,7 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
     -----------------------------------------
 	*/
 	gen long_list = 1 if _m == 3
-	replace long_list = 0 of 
+	replace long_list = 0 if _m == 2
 	drop _m 
 	
 	count if emis_v_sa ==0 & long_list==1 // schools with same coordinates
@@ -178,7 +178,7 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
 	
 ***Using already assessed schools' coordinates
 	
-	use "$data\Dataset\gradesb\gradesb.dta", clear
+	use "$data\Dataset\prelim_gradesb\prelim_gradesb.dta", clear
 	ren BEMIS schoolemiscode
 	keep schoolemiscode _GPSCoordinates_longitude _GPSCoordinates_latitude
 	rename _GPSCoordinates_longitude X_rtsm
@@ -203,6 +203,39 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
 	
 	geodist Y_sa X_sa Y_rtsm X_rtsm, gen (sa_v_rtsm)
 	geodist Y_emis X_emis Y_rtsm X_rtsm, gen (emis_v_rtsm)
+	
+	tempfile emis_coor1
+	sa `emis_coor1'
+
+***Monitoring team's work 														\\coordinates received from the monitoring team for all the schools
+	
+	import excel "C:\Users\wb635947\OneDrive - WBG\Jayati Sethi's files - Pakistan GRADES-B\Data\Admin Data\Monitoring coordinates\RTSM sheeet with GPS.xlsx", sheet("Sheet1") firstrow clear
+	
+	rename BemisCode schoolemiscode
+	
+	merge 1:1 schoolemiscode using `emis_coor1'
+	 /*
+	  Result                      Number of obs
+    -----------------------------------------
+    Not matched                           159
+        from master                        47  (_merge==1)
+        from using                        112  (_merge==2)
+
+    Matched                            14,763  (_merge==3)
+    -----------------------------------------
+	*/
+	rename _merge _merge_rtsm1
+	
+	rename XCord Y_rtsm1														// X and Y seems to be wrongly tagged, fixing it here
+	rename YCord X_rtsm1
+	
+	geodist Y_sa X_sa Y_rtsm1 X_rtsm1, gen (sa_v_rtsm1)
+	geodist Y_emis X_emis Y_rtsm1 X_rtsm1, gen (emis_v_rtsm1)
+	geodist Y_rtsm X_rtsm Y_rtsm1 X_rtsm1, gen (rtsm_v_rtsm1)
+	
+	
+	
+	
 	
 save "$data\Dataset\admin\coordinates_checks.dta", replace							//saving .dta file
 export delimited using "$data\Dataset\admin\coordinates_checks.csv", replace			//saving the csv file
