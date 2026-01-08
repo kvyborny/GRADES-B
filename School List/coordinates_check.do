@@ -209,7 +209,7 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
 
 ***Monitoring team's work 														\\coordinates received from the monitoring team for all the schools
 	
-	import excel "C:\Users\wb635947\OneDrive - WBG\Jayati Sethi's files - Pakistan GRADES-B\Data\Admin Data\Monitoring coordinates\RTSM sheeet with GPS.xlsx", sheet("Sheet1") firstrow clear
+	import excel "$data\Admin Data\Monitoring coordinates\RTSM sheeet with GPS.xlsx", sheet("Sheet1") firstrow clear
 	
 	rename BemisCode schoolemiscode
 	
@@ -233,7 +233,13 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
 	geodist Y_emis X_emis Y_rtsm1 X_rtsm1, gen (emis_v_rtsm1)
 	geodist Y_rtsm X_rtsm Y_rtsm1 X_rtsm1, gen (rtsm_v_rtsm1)
 	
+	tempfile emis_coor2
+	sa `emis_coor2'
 	
+***Coordinates shared by Surveyauto
+	
+	import delimited "$data\Admin Data\Dashboard data - SurveyAuto\balochistan_schools_org.csv", clear 
+
 	
 	
 	
