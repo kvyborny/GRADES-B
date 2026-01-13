@@ -21,7 +21,7 @@
 	use "$data\Dataset\admin\emis_final_clean.dta", clear
 	
 	preserve
-	keep EMISCode SchoolName District Tehsil SubTehsil UC SchoolLevel FunctionalStatus SchoolOwnedBy SpaceForNewRooms girls_enrol_p boys_enrol_p enrol_per_room Latitude Longitude gender assessment_done girls_enrol_total boys_enrol_total TotalRooms gender_changed
+	keep EMISCode SchoolName District Tehsil SubTehsil UC SchoolLevel FunctionalStatus SchoolOwnedBy SpaceForNewRooms girls_enrol_p boys_enrol_p enrol_per_room Latitude Longitude gender assessment_done girls_enrol_total boys_enrol_total girls_prop_p boys_prop_p TotalRooms gender_changed
 	keep if enrol_per_room >=40 & gender == "Girls"
 	
 	rename EMISCode schoolemiscode

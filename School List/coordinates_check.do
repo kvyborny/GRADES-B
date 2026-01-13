@@ -240,7 +240,14 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
 	
 	import delimited "$data\Admin Data\Dashboard data - SurveyAuto\balochistan_schools_org.csv", clear 
 
+	rename school_code schoolemiscode
+	keep schoolemiscode lat lng
+	rename lat Y_emis1
+	rename lng X_emis1
 	
+	merge 1:1 schoolemiscode using `emis_coor2'
+	
+	geodist  Y_emis1 X_emis1 Y_sa X_sa , gen (sa_v_emis1)
 	
 	
 save "$data\Dataset\admin\coordinates_checks.dta", replace							//saving .dta file
