@@ -16,32 +16,79 @@
 		
 	}
 
-	
-use "$data\Dataset\admin\emis_final_clean.dta", clear 							// prepared emis to get the vars
-	ren EMISCode schoolemiscode
-	ren SchoolName schoolname
-	ren UC uc 
-	ren Tehsil tehsil
-	ren SubTehsil subtehsil
-	ren VillageName villagename
-	ren District district
-	ren FunctionalStatus functionalstatus
-	ren Location location
-	ren SpaceForNewRooms space_new_room
-	ren SchoolOwnedBy school_owned_by
-	
-	gen overcrowded_girls_school = 1 if  enrol_per_room >=40 & gender == "Girls"
+import excel "$data\Admin Data\EMIS Data\Balochistan EMIS Flatsheet 2024-25.xlsx", sheet("16-8-25") firstrow clear
 
+	*Enrollment from Kachi - Grade 5
+	
+	local girls_p KGSt PGSt GSt DS DW EA
+	local boys_p KBSt PBSt BSt DQ DU DY
+	
+	destring `girls_p', replace force
+	destring `boys_p', replace force 
+	
+	egen girls_enrol_p = rowtotal(`girls_p')
+	egen boys_enrol_p= rowtotal(`boys_p')
+	
+	*Enrollment from Kachi - Grade 12
+	
+	local girls_total KGSt PGSt GSt DS DW EA EE EI EM EQ EU EY FC
+	local boys_total KBSt PBSt BSt DQ DU DY EC EG EK EO ES EW FA
+	
+	destring `girls_total', replace force
+	destring `boys_total', replace force 
+	
+	egen girls_enrol_total = rowtotal(`girls_total') // Total girls enrollment from Kachi - Grade 12
+	egen boys_enrol_total = rowtotal(`boys_total')	// Total boys enrollment from Kachi - Grade 12
+	
+	gen total_enrollment =  girls_enrol_total + boys_enrol_total // Total enrollment in the school from Kachi - Grade 12
+
+	gen enrol_per_room = total_enrollment/TotalRooms // Students per classroom
+	replace enrol_per_room = 0 if enrol_per_room ==.
+	
+	gen overcrowded=1 if enrol_per_room >=40
+	replace overcrowded =0 if enrol_per_room<40
+	
+	gen girls_prop_p = (girls_enrol_p / (girls_enrol_p + boys_enrol_p))*100 // Girls proportion in primary school classes (Kachi - G12)
+	gen boys_prop_p = (boys_enrol_p / (girls_enrol_p + boys_enrol_p))*100 // Boys proportion in primary school classes (Kachi - G12)
+	
+	gen girls_prop_total = (girls_enrol_total / (girls_enrol_total + boys_enrol_total))*100 // Girls proportion in the whole school (Kachi - G5)
+	gen boys_prop_total = (boys_enrol_total / (girls_enrol_total + boys_enrol_total))*100 // Boys proportion in the whole school (Kachi - G5)
+	
+	ren BemisCode schoolemiscode
+
+	keep schoolemiscode FunctionalStatus Location ///
+	District Tehsil SubTehsil UC  VillageName /// 
+	 Genderupdated SchoolLevel FunctionalStatus girls_enrol_p boys_enrol_p girls_enrol_total boys_enrol_total TotalRooms enrol_per_room SpaceForNewRooms SchoolOwnedBy girls_prop_p boys_prop_p girls_prop_total boys_prop_total total_enrollment TeachingMale TeachingFemale TotalTeachingStaff overcrowded // keeping only relevant vars
+	
+	ren District District_emis
+	ren Tehsil Tehsil_emis
+	ren SubTehsil SubTehsil_emis
+	ren UC UC_emis
+	ren VillageName VillageName_emis
 
 	tempfile emis
 	sa `emis'
 	
-import delimited "$data\Dataset\osrm\DS_longlist_for_PMU.csv", clear			// got the missing vars from emis using emis id for the DS school list
+import delimited "$data\Dataset\osrm\DS_longlist_for_PMU.csv", clear
+			// got the missing vars from emis using emis id for the DS school list
 	ren emiscode schoolemiscode
-	keep schoolemiscode district schoollevel gender latitude longitude functionalstatus
+	keep schoolemiscode ref_nearest_girls_emis
 	gen intervention = "Double shift"
-	merge 1:1 schoolemiscode using `emis', keepusing (schoolname uc subtehsil villagename tehsil location space_new_room school_owned_by girls_enrol_p boys_enrol_p assessment_done )
-	keep if _m == 3
+	
+	merge 1:1 schoolemiscode using `emis', keepusing (Location SpaceForNewRooms SchoolOwnedBy girls_enrol_p boys_enrol_p girls_enrol_total boys_enrol_total girls_prop_p boys_prop_p total_enrollment TeachingMale TeachingFemale TotalTeachingStaff overcrowded)
+	
+	/*
+	   Result                      Number of obs
+    -----------------------------------------
+    Not matched                        10,105
+        from master                         8  (_merge==1)
+        from using                     10,097  (_merge==2)
+
+    Matched                             5,265  (_merge==3)
+    -----------------------------------------
+	*/
+	
+	drop if _m == 2
 	drop _m
 	
 	tempfile ds_list
@@ -49,10 +96,22 @@ import delimited "$data\Dataset\osrm\DS_longlist_for_PMU.csv", clear			// got th
 
 import delimited "$data\Dataset\osrm\TE_longlist_high_conf_for_PMU.csv", clear	//cleaned the TE list to match the vars for appending
 
-	drop te_isolated_high_conf needs_manual_check 
+	keep schoolemiscode ref_nearest_school_emis
 	gen intervention = "Transport"
 	
-	merge 1:1 schoolemiscode using `emis', keepusing (location space_new_room school_owned_by girls_enrol_p boys_enrol_p assessment_done)
+	merge 1:1 schoolemiscode using `emis', keepusing ( Location SpaceForNewRooms SchoolOwnedBy girls_enrol_p boys_enrol_p girls_enrol_total boys_enrol_total girls_prop_p boys_prop_p total_enrollment TeachingMale TeachingFemale TotalTeachingStaff overcrowded)
+	
+	/*
+	 Result                      Number of obs
+    -----------------------------------------
+    Not matched                        13,642
+        from master                         0  (_merge==1)
+        from using                     13,642  (_merge==2)
+
+    Matched                             1,720  (_merge==3)
+    -----------------------------------------
+	*/
+	
 	keep if _m == 3
 	drop _m
 	
@@ -60,7 +119,52 @@ import delimited "$data\Dataset\osrm\TE_longlist_high_conf_for_PMU.csv", clear	/
 	drop check_append	
 	
 	
+	tempfile master
+	sa `master'
+	
+	use "$data\Dataset\admin\emis_final_clean.dta", clear
+	
+	rename EMISCode schoolemiscode
+	
+	merge 1:1 schoolemiscode using `master'
+	
+	/*
+	 Result                      Number of obs
+    -----------------------------------------
+    Not matched                         4,546
+        from master                     4,546  (_merge==1)
+        from using                          0  (_merge==2)
+
+    Matched                             6,993  (_merge==3)
+    -----------------------------------------
+	*/
+	
+	keep if _m==3
+	drop _m
+	
+	tempfile master1
+	sa `master1'
+	
+	import excel "$data\Admin Data\EMIS Data\school name with UC.xlsx", sheet("Sheet1") firstrow clear
+	
+	rename BemisCode schoolemiscode 
+	keep schoolemiscode Division District Tehsil SubTehsil UC VillageName
+	
+	merge 1:1 schoolemiscode using `master1'
+	
+	/*   Result                      Number of obs
+    -----------------------------------------
+    Not matched                         8,386
+        from master                     8,379  (_merge==1)
+        from using                          7  (_merge==2)
+
+    Matched                             6,986  (_merge==3)
+    -----------------------------------------
+	*/
+	keep if _m == 3 | _m ==2
+	drop _m
+	
 	save "$data\Dataset\admin\long_list.dta", replace							//saving .dta file
 	export delimited using "$data\Dataset\admin\long_list.csv", replace			//saving the csv file
 	
-*check on how different the coordinates (EMIS v Surveyauto)
+	

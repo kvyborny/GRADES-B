@@ -22,35 +22,6 @@
 import excel "$data\Admin Data\EMIS Data\Balochistan EMIS Flatsheet 2024-25.xlsx", sheet("16-8-25") firstrow clear
 
 	rename BemisCode BEMIS
-	/*
-	*Enrollment from Kachi - Grade 5
-	
-	local girls_p KGSt PGSt GSt DS DW EA
-	local boys_p KBSt PBSt BSt DQ DU DY
-	
-	destring `girls_p', replace force
-	destring `boys_p', replace force 
-	
-	egen girls_enrol_p = rowtotal(`girls_p')
-	egen boys_enrol_p= rowtotal(`boys_p')
-	
-	Enrollment from Kachi - Grade 12
-	
-	local girls_total KGSt PGSt GSt DS DW EA EE EI EM EQ EU EY FC
-	local boys_total KBSt PBSt BSt DQ DU DY EC EG EK EO ES EW FA
-	
-	destring `girls_total', replace force
-	destring `boys_total', replace force 
-	
-	egen girls_enrol_total = rowtotal(`girls_total')
-	egen boys_enrol_total = rowtotal(`boys_total')	
-	
-	gen enrol_per_room = (girls_enrol_total + boys_enrol_total)/TotalRooms
-	replace enrol_per_room = 0 if enrol_per_room ==.
-
-	keep BEMIS SchoolName Genderupdated SchoolLevel FunctionalStatus District Tehsil Location
-	*SubTehsil UC VillageName Genderupdated SchoolLevel FunctionalStatus girls_enrol_p boys_enrol_p girls_enrol_total boys_enrol_total TotalRooms enrol_per_room SpaceForNewRooms SchoolOwnedBy // keep only relevant vars
-	*/
 	keep BEMIS SchoolName 
 	tempfile emis_flatsheet
 	sa `emis_flatsheet'
@@ -149,7 +120,7 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
 	//2,874
 	
 	rename EMISCode schoolemiscode
-	merge 1:1 schoolemiscode using "$data\Dataset\admin\long_list.dta", keepusing(schoolname) //checking for the long of schools now
+	merge 1:1 schoolemiscode using "$data\Dataset\admin\long_list.dta", keepusing (SchoolName) //checking for the long of schools now
 	/*
 	  Result                      Number of obs
     -----------------------------------------
@@ -240,8 +211,40 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
 	
 	import delimited "$data\Admin Data\Dashboard data - SurveyAuto\balochistan_schools_org.csv", clear 
 
+	rename school_code schoolemiscode
+	keep schoolemiscode lat lng
+	rename lat Y_emis1
+	rename lng X_emis1
+	
+	merge 1:1 schoolemiscode using `emis_coor2'
+	
+	/*    Result                      Number of obs
+    -----------------------------------------
+    Not matched                         1,108
+        from master                         0  (_merge==1)
+        from using                      1,108  (_merge==2)
+
+    Matched                            14,270  (_merge==3)
+    -----------------------------------------
+*/
+
+	drop _merge
+	
+	geodist  Y_emis1 X_emis1 Y_sa X_sa , gen (sa_v_emis1)
 	
 	
+	
+	tempfile emis_coor3
+	sa `emis_coor3'
+	
+	
+	import excel "$data\Admin Data\EMIS Data\school name with UC.xlsx", sheet("Sheet1") firstrow clear
+	
+	rename BemisCode schoolemiscode 
+	
+	merge 1:1 schoolemiscode using `emis_coor3'
+
+
 	
 save "$data\Dataset\admin\coordinates_checks.dta", replace							//saving .dta file
 export delimited using "$data\Dataset\admin\coordinates_checks.csv", replace			//saving the csv file
