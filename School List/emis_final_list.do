@@ -59,12 +59,31 @@ import excel "$data\Admin Data\EMIS Data\Balochistan EMIS Flatsheet 2024-25.xlsx
 	keep schoolemiscode FunctionalStatus Location ///
 	District Tehsil SubTehsil UC  VillageName /// 
 	 Genderupdated SchoolLevel FunctionalStatus girls_enrol_p boys_enrol_p girls_enrol_total boys_enrol_total TotalRooms enrol_per_room SpaceForNewRooms SchoolOwnedBy girls_prop_p boys_prop_p girls_prop_total boys_prop_total total_enrollment TeachingMale TeachingFemale TotalTeachingStaff overcrowded // keeping only relevant vars
+	 
+	 preserve 
+	 
+	 rename schoolemiscode EMISCode
+			
+	 merge 1:1 EMISCode using  "$data\Dataset\admin\emis_final_clean.dta", keepusing (SchoolName Latitude Longitude gender Level)
+	 /*
+	   Result                      Number of obs
+    -----------------------------------------
+    Not matched                         3,853
+        from master                     3,838  (_merge==1)
+        from using                         15  (_merge==2)
+
+    Matched                            11,524  (_merge==3)
+    -----------------------------------------
+
+*/
+
+	drop if _m == 1
 	
-	ren District District_emis
-	ren Tehsil Tehsil_emis
-	ren SubTehsil SubTehsil_emis
-	ren UC UC_emis
-	ren VillageName VillageName_emis
+	keep if enrol_per_room >=40 & gender == "Girls"
+	
+	export delimited using "$data\Dataset\admin\overcrowded_girls_schools.csv", replace // list of overcrowded_girls_schools
+	
+	restore 
 
 	tempfile emis
 	sa `emis'
@@ -72,10 +91,12 @@ import excel "$data\Admin Data\EMIS Data\Balochistan EMIS Flatsheet 2024-25.xlsx
 import delimited "$data\Dataset\osrm\DS_longlist_for_PMU.csv", clear
 			// got the missing vars from emis using emis id for the DS school list
 	ren emiscode schoolemiscode
-	keep schoolemiscode ref_nearest_girls_emis
+	keep schoolemiscode ref_nearest_girls_emis refgirlsschoolname
+	ren ref_nearest_girls_emis nearest_girls_schoolemis 
+	ren refgirlsschoolname nearest_girls_schoolname
 	gen intervention = "Double shift"
 	
-	merge 1:1 schoolemiscode using `emis', keepusing (Location SpaceForNewRooms SchoolOwnedBy girls_enrol_p boys_enrol_p girls_enrol_total boys_enrol_total girls_prop_p boys_prop_p total_enrollment TeachingMale TeachingFemale TotalTeachingStaff overcrowded enrol_per_room TotalRooms)
+	merge 1:1 schoolemiscode using `emis', keepusing (Location SpaceForNewRooms SchoolOwnedBy girls_enrol_p boys_enrol_p girls_enrol_total boys_enrol_total girls_prop_p boys_prop_p total_enrollment TeachingMale TeachingFemale TotalTeachingStaff overcrowded enrol_per_room TotalRooms  girls_prop_total boys_prop_total)
 	
 	/*
 	   Result                      Number of obs
@@ -96,10 +117,13 @@ import delimited "$data\Dataset\osrm\DS_longlist_for_PMU.csv", clear
 
 import delimited "$data\Dataset\osrm\TE_longlist_high_conf_for_PMU.csv", clear	//cleaned the TE list to match the vars for appending
 
-	keep schoolemiscode ref_nearest_school_emis
+	keep schoolemiscode ref_nearest_school_emis refschoolname
+	ren ref_nearest_school_emis nearest_girls_schoolemis 
+	ren refschoolname nearest_girls_schoolname
+	
 	gen intervention = "Transport"
 	
-	merge 1:1 schoolemiscode using `emis', keepusing ( Location SpaceForNewRooms SchoolOwnedBy girls_enrol_p boys_enrol_p girls_enrol_total boys_enrol_total girls_prop_p boys_prop_p total_enrollment TeachingMale TeachingFemale TotalTeachingStaff overcrowded  enrol_per_room TotalRooms)
+	merge 1:1 schoolemiscode using `emis', keepusing ( Location SpaceForNewRooms SchoolOwnedBy girls_enrol_p boys_enrol_p girls_enrol_total boys_enrol_total girls_prop_p boys_prop_p total_enrollment TeachingMale TeachingFemale TotalTeachingStaff overcrowded  enrol_per_room TotalRooms  girls_prop_total boys_prop_total)
 	
 	/*
 	 Result                      Number of obs
@@ -162,6 +186,9 @@ import delimited "$data\Dataset\osrm\TE_longlist_high_conf_for_PMU.csv", clear	/
     -----------------------------------------
 	*/
 	keep if _m == 3 | _m ==2
+	
+	gen emis_info_missing = 1 if _m ==2
+	
 	drop _m
 	
 	save "$data\Dataset\admin\long_list.dta", replace							//saving .dta file
