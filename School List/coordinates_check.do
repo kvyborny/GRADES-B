@@ -67,7 +67,8 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
     Matched                            14,778  (_merge==3)
     -----------------------------------------
 */
-	keep if _m==3																					// only relevant where coordinates exist
+	keep if _m==3																// only relevant where coordinates exist
+	gen emis = 1
     drop _merge	
 	
 	duplicates report X Y
@@ -89,6 +90,7 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
 	keep EMISCode Latitude Longitude SchoolName
 	duplicates report EMISCode
 	duplicates report Latitude Longitude
+
 	
 	merge 1:1 EMISCode using `master' 									// Merge surveyauto dashboard data to get their coordinates 
 	
@@ -106,6 +108,8 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
 	rename Longitude X_sa
 	rename Latitude Y_sa
 	rename _merge merge_sa
+	
+	gen sa = 1 if merge_sa == 3 | merge_sa == 1
 																		// check on how different the coordinates (EMIS v Surveyauto)
 	geodist Y_emis X_emis Y_sa X_sa, gen (emis_v_sa)
 	sum emis_v_sa, d
@@ -197,6 +201,8 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
 	*/
 	rename _merge _merge_rtsm1
 	
+	gen rtsm1 = 1 if _merge==3 | _merge==1
+	
 	rename XCord Y_rtsm1														// X and Y seems to be wrongly tagged, fixing it here
 	rename YCord X_rtsm1
 	
@@ -210,7 +216,7 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
 ***Coordinates shared by Surveyauto
 	
 	import delimited "$data\Admin Data\Dashboard data - SurveyAuto\balochistan_schools_org.csv", clear 
-
+	
 	rename school_code schoolemiscode
 	keep schoolemiscode lat lng
 	rename lat Y_emis1
@@ -228,6 +234,8 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
     -----------------------------------------
 */
 
+	gen sa1 = 1 if _merge ==3 
+
 	drop _merge
 	
 	geodist  Y_emis1 X_emis1 Y_sa X_sa , gen (sa_v_emis1)
@@ -236,13 +244,6 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
 	
 	tempfile emis_coor3
 	sa `emis_coor3'
-	
-	
-	import excel "$data\Admin Data\EMIS Data\school name with UC.xlsx", sheet("Sheet1") firstrow clear
-	
-	rename BemisCode schoolemiscode 
-	
-	merge 1:1 schoolemiscode using `emis_coor3'
 
 
 	

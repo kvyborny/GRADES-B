@@ -16,7 +16,7 @@
 	}
 
 
-***Variables generation
+***EMIS
 
 import excel "$data\Admin Data\EMIS Data\Balochistan EMIS Flatsheet 2024-25.xlsx", sheet("16-8-25") firstrow clear
 
@@ -35,8 +35,8 @@ import excel "$data\Admin Data\EMIS Data\Balochistan EMIS Flatsheet 2024-25.xlsx
 	rename SchoolName schoolname_rtsm
 	keep BEMIS XCord YCord Level Gender schoolname_rtsm
 	
-	merge 1:1 BEMIS using `emis_flatsheet'
-	/*
+	merge 1:1 BEMIS using `emis_flatsheet'										// 15 schools are in RTSM but not in EMIS and 567 schools in EMIS are not in RTSM - keeping both at this stage. 
+	/*																			
 	 Result                      Number of obs
     -----------------------------------------
     Not matched                           582
@@ -47,7 +47,7 @@ import excel "$data\Admin Data\EMIS Data\Balochistan EMIS Flatsheet 2024-25.xlsx
     -----------------------------------------
 
 	*/
-	drop _merge
+	ren _merge merge_emis_rtsm
 	tempfile emis_flatsheet1
 	sa `emis_flatsheet1'
 	
@@ -81,7 +81,7 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
 	
 	merge 1:1 BEMIS using `emis_flatsheet1'
 	
-	/*
+	/*																			
 	   Result                      Number of obs
     -----------------------------------------
     Not matched                           584
@@ -92,14 +92,14 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
 	-----------------------------------------
 	*/
 	drop _m
-	drop if X ==. & Y ==. & XCord ==. & YCord ==. 								// dropping the schools for which we dont have coordinates in both RTSM and EMIS
+	drop if X ==. & Y ==. & XCord ==. & YCord ==. 								// dropping the schools (545) for which we dont have coordinates in both RTSM and EMIS
 	rename X X_emis
 	rename Y Y_emis
 	
 	rename XCord Y 																//This was a mistake from the admin data, so fixing it here
 	rename YCord X
 	
-	replace Y = Y_emis if Y==.													//Using EMIS coordinates for those school for which we do not have RTSM coordinates
+	replace Y = Y_emis if Y==.													//Using EMIS coordinates for those school for which we do not have RTSM coordinates (22 schools)
 	replace X = X_emis if X==.
 	
 	drop X_emis Y_emis
@@ -109,7 +109,7 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
 	rename BEMIS EMISCode 
 	
 ***SchoolName 
-	replace SchoolName = schoolname_rtsm if SchoolName ==""							//Taking schoolname from RTSM of those which are not in the EMIS  
+	replace SchoolName = schoolname_rtsm if SchoolName ==""							//Taking schoolname from RTSM for those schools which are not in the EMIS  
 	drop schoolname_rtsm
 		
 	tempfile emis_clean
@@ -147,15 +147,16 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
 	drop _GPSCoordinates_longitude _GPSCoordinates_latitude
 	
 	
-	replace SchoolName = schoolname_gradesb if SchoolName == ""							//Getting schoolname of 10 schools which are not in EMIS but are in already assessed schools
+	replace SchoolName = schoolname_gradesb if SchoolName == ""					//Getting schoolname of 10 schools which are not in EMIS but are in already assessed schools
 	drop schoolname_gradesb
-	drop if EMISCode == 10222 | EMISCode == 3248										// These two schools are dropped because the difference between the coordinates of EMIS and SurveyAuto is more than 3km - we can not rely on these coordinates from EMIS. These schools are also not part of the already assessed schools.
 	
+	drop if EMISCode == 10222 | EMISCode == 3248								//These two schools are dropped because the difference between the coordinates of EMIS and SurveyAuto is more than 3km - we can not rely on these coordinates from EMIS. These schools are also not part of the already assessed schools.
 	
+	drop if EMISCode == 17989 | EMISCode == 15375 								//These two schools are dropped because the longitude and latitude provided by RTSM dataset was not making sense and we do not have their reliable coordinates in any other dataset
 	
 ***Cleaning gender variable 
 
-	gen gender = Gender															//Using gender variable from the RTSM data and cleaning it by looking at the schoolname 
+	gen gender = Gender															//Using gender variable from the RTSM data and cleaning it by looking at the schoolname + this set of code also adds gender for the 10 schools coming from GRADES B dataset
 	replace gender = "Girls" if regexm(SchoolName, "^GG")
 	replace gender = "Boys" if regexm(SchoolName, "^GB")
 	replace gender = Gender if Gender == "Co-Education"
@@ -165,7 +166,7 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
 	drop Gender Genderupdated
 
 ****Cleaning school level variable
-	replace SchoolLevel = schoollevel if SchoolLevel ==""						//Filling EMIS level with grades b level for those 10 schools are not in EMIS but are already assesed
+	replace SchoolLevel = schoollevel if SchoolLevel ==""						//Filling EMIS level with GRADES B level for those 10 schools are not in EMIS but are already assesed
 	replace Level = SchoolLevel if Level ==""									//Using RTSM Level and filling in with EMIS where RTSM is missing 
 	replace Level = "HIGH" if Level == "high" |  Level == "High"
 	replace Level = "HIGHER SECONDARY" if Level == "higher secondary" |  Level == "Higher Secondary"
