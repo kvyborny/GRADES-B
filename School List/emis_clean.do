@@ -16,7 +16,7 @@
 	}
 
 
-***Variables generation
+***EMIS
 
 import excel "$data\Admin Data\EMIS Data\Balochistan EMIS Flatsheet 2024-25.xlsx", sheet("16-8-25") firstrow clear
 
@@ -47,7 +47,7 @@ import excel "$data\Admin Data\EMIS Data\Balochistan EMIS Flatsheet 2024-25.xlsx
     -----------------------------------------
 
 	*/
-	drop _merge
+	ren _merge merge_emis_rtsm
 	tempfile emis_flatsheet1
 	sa `emis_flatsheet1'
 	
@@ -92,7 +92,7 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
 	-----------------------------------------
 	*/
 	drop _m
-	drop if X ==. & Y ==. & XCord ==. & YCord ==. 								// dropping the schools for which we dont have coordinates in both RTSM and EMIS
+	drop if X ==. & Y ==. & XCord ==. & YCord ==. 								// dropping the schools (545) for which we dont have coordinates in both RTSM and EMIS
 	rename X X_emis
 	rename Y Y_emis
 	
