@@ -270,9 +270,10 @@ import excel "$data\Admin Data\BHCIP\BHCIP_edited.xlsx", sheet("BHCIP 5 District
 	replace Latitude = Lati if _m == 1
 	drop _merge Long Lati
 	
-	save "$data\Dataset\admin\emis_final_clean_all.dta", replace
-	export delimited using "$data\Dataset\admin\emis_final_clean_all.csv", replace
+		save "$data\Dataset\admin\emis_final_clean.dta", replace
+	export delimited using "$data\Dataset\admin\emis_final_clean.csv", replace
 	
+
 	drop if FunctionalStatus == "Non-Functional"
 
 	*/
