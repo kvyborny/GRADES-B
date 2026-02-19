@@ -118,29 +118,33 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
 	
 	
 ***Tagging already assessed schools
-
-	use "$data\Dataset\prelim_gradesb\prelim_gradesb.dta", clear
+	
+	import excel "C:\Users\wb635947\OneDrive - WBG\Jayati Sethi's files - Pakistan GRADES-B\Data\Admin Data\GRADES B\GRADES Latest sheet 3278 schools (2).xlsx", sheet("Sheet1") firstrow clear
+	
+	destring BEMIS, replace
 	rename BEMIS EMISCode 
-	rename SchoolLevel schoollevel
+	rename Level schoollevel
 	
 	gen schoolname_gradesb = substr(SchoolName, strpos (SchoolName, "-") + 1, .)
 	
-	keep EMISCode _GPSCoordinates_latitude _GPSCoordinates_longitude schoolname_gradesb schoollevel
+	keep EMISCode _GPSCoordinates_latitude _GPSCoordinates_longitude schoolname_gradesb schoollevel ECE
 	
 	merge 1:1 EMISCode using `emis_clean'
 	
-	/* Result                      Number of obs
+	/*
+	 Result                      Number of obs
     -----------------------------------------
-    Not matched                        11,357
-        from master                        10  (_merge==1)
-        from using                     11,347  (_merge==2)
+    Not matched                        11,568
+        from master                         7  (_merge==1)
+        from using                     11,561  (_merge==2)
 
-    Matched                             3,483  (_merge==3)
+    Matched                             3,271  (_merge==3)
     -----------------------------------------
+	
 	*/
 	
-	gen assessment_done =  "Yes" if _m == 3 |  _m == 1
-	replace assessment_done = "No" if _m ==2
+*	gen assessment_done =  "Yes" if _m == 3 |  _m == 1
+*	replace assessment_done = "No" if _m ==2
 	drop _m 
 	
 	replace Latitude = _GPSCoordinates_latitude if Latitude ==.					//Getting coordinates of 10 schools which are not in EMIS but are in already assessed schools
@@ -212,7 +216,7 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
 	
 	tempfile emis_clean2
 	sa `emis_clean2'
-	
+	/*
 ***marking STEP B schools
 	
 
@@ -270,6 +274,28 @@ import excel "$data\Admin Data\BHCIP\BHCIP_edited.xlsx", sheet("BHCIP 5 District
 	replace Latitude = Lati if _m == 1
 	drop _merge Long Lati
 	
+	tempfile emis_clean4																	// dropped Step-B schools from EMIS
+	sa `emis_clean4'
+	
+	import excel "$data\Admin Data\BHCIP\Already focused in BHCIP.xlsx", sheet("Sheet1") firstrow clear
+	
+	rename emiscode EMISCode
+	
+	merge 1:1 EMISCode using `emis_clean4'
+	
+	/* Result                      Number of obs
+    -----------------------------------------
+    Not matched                        14,820
+        from master                         0  (_merge==1)
+        from using                     14,820  (_merge==2)
+
+    Matched                                22  (_merge==3)
+    -----------------------------------------*/
+	
+	replace BHCIP =1 if _m ==3
+	drop _m
+
+	*/
 	save "$data\Dataset\admin\emis_final_clean_all.dta", replace
 	export delimited using "$data\Dataset\admin\emis_final_clean_all.csv", replace
 	
