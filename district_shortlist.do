@@ -1,0 +1,201 @@
+/********************************************************************************
+ 	Purpose: 		Generate descriptives for School Enrollment (by Age and Gender) 
+					in Pakistan VS. the KPK districts in our study using PSLM data 
+					for the year 2019-2020
+			
+
+	Created by: 	Hijab Waheed 
+	Date Created: 	04 March 2026
+	
+	Modified by:
+	Date Modified: 
+
+********************************************************************************/
+* School Enrollment by Gender 
+********************************************************************************
+
+*********************************
+* Setting globals for directories
+*********************************
+
+		global 			pslm "C:\Users\wb635947\OneDrive - WBG\Jayati Sethi's files - Pakistan_KPRAP_C2_IE\Project files\Public data\PSLM_2019_2020"
+		global			surveyauto "C:\Users\wb635947\OneDrive - WBG\Jayati Sethi's files - Pakistan GRADES-B\Data\Dataset\dashboard" 
+		global 			Output "C:\Users\wb635947\OneDrive - WBG\Jayati Sethi's files - Pakistan GRADES-B\Data\Analysis\OOSC"
+
+
+	**************
+	* Data Prep 
+	**************	
+			
+		// Roster data
+		use 			"$pslm\roster.dta", clear
+				
+		sort 			hhcode idc
+		format 			hhcode %20.0g
+		rename 			sb1q4 gender
+		keep 			hhcode province idc gender age district
+			
+		tempfile 		roster
+		save 			`roster'
+		
+		// Data to get the variable for current enrollment status 
+		use 			"$pslm\secc1.dta", clear
+		rename 			sc1q01 edu
+		
+		keep 			hhcode idc edu
+		
+		// Merge with roster 
+		merge 			1:1 hhcode idc using `roster', keep(match) nogen
+		
+		// Saving cleaned data to be used further
+		tempfile 	 	data
+		save 			`data'
+		
+*===========================================================
+* PSLM 2019-20 | Balochistan
+* OOSC - All Districts
+*===========================================================
+
+* --- 1. Load data ---
+use `data', clear
+
+* --- 2. Keep Balochistan only ---
+keep if province == 4
+
+* --- 3. Keep primary school age (5–9), both genders ---
+keep if age >= 5 & age <= 9
+keep if gender == 1 | gender == 2
+
+* --- 4. Define OOSC ---
+gen oosc = (edu==1)
+
+* --- 5. Collapse for all kids (both genders combined) ---
+collapse (mean) oosc_rate=oosc, by(district)
+replace oosc_rate = oosc_rate * 100
+label var oosc_rate "OOSC Rate (%) - All Children"
+
+* --- 6. Decode district and sort by OOSC rate ---
+decode district, gen(district_label)
+gsort -oosc_rate
+
+* --- 7. Plot bar chart for all districts ---
+graph hbar oosc_rate, over(district_label, sort(oosc_rate) descending ///
+    label(angle(0) labsize(vsmall))) ///
+    bar(1, color("70 130 180")) ///
+    title("Out-of-School Children (OOSC) Rate by District", size(medium)) ///
+    subtitle("Balochistan | PSLM 2019-20 | Primary Age (5–9) | All Children", size(small)) ///
+    ytitle("OOSC Rate (%)") ///
+    blabel(bar, format(%4.1f) size(vsmall)) ///
+    graphregion(color(white)) bgcolor(white) ///
+    note("Note: OOSC rate is the share of children aged 5–9 never enrolled in school." ///
+         "Both boys and girls are included." ///
+         "N children (5-9)= 14,591." ///
+		 "Source: PSLM (2019-20)", size(vsmall))
+
+* --- 8. Export ---
+graph export "$Output\oosc_pslm.png", replace width(2400)
+
+*===========================================================
+* PSLM 2019-20 | Balochistan
+* OOSC Gender Gap - All Districts
+* Single bar = Girls OOSC% - Boys OOSC%
+*===========================================================
+
+* --- 1. Load data ---
+use `data', clear
+
+* --- 2. Keep Balochistan only ---
+keep if province == 4
+
+* --- 3. Keep primary school age (5–9), both genders ---
+keep if age >= 5 & age <= 9
+keep if gender == 1 | gender == 2
+
+* --- 4. Define OOSC ---
+gen oosc = (edu==1)
+
+* --- 5. Collapse separately for boys and girls ---
+preserve
+    keep if gender == 2
+    collapse (mean) oosc_rate_girls=oosc, by(district)
+    replace oosc_rate_girls = oosc_rate_girls * 100
+    save "oosc_girls.dta", replace
+restore
+
+preserve
+    keep if gender == 1
+    collapse (mean) oosc_rate_boys=oosc, by(district)
+    replace oosc_rate_boys = oosc_rate_boys * 100
+    save "oosc_boys.dta", replace
+restore
+
+* --- 6. Merge and calculate gender gap ---
+use "oosc_girls.dta", clear
+merge 1:1 district using "oosc_boys.dta", nogen
+
+gen gender_gap = oosc_rate_girls - oosc_rate_boys
+label var gender_gap "Gender Gap: Girls OOSC% - Boys OOSC%"
+
+* --- 7. Decode district and sort by gap ---
+decode district, gen(district_label)
+gsort -gender_gap
+
+* --- 8. Plot single bar chart for all districts ---
+graph hbar gender_gap, over(district_label, sort(gender_gap) descending ///
+    label(angle(0) labsize(vsmall))) ///
+    bar(1, color("214 39 40"))  ///
+    title("Gender Gap in OOSC Rate by District", size(medium)) ///
+    subtitle("Balochistan | PSLM 2019-20 | Primary Age (5-9) ", size(small)) ///
+    ytitle("Percentage Point Difference (Girls% - Boys%)") ///
+    yline(0, lcolor(black) lpattern(dash)) ///
+    blabel(bar, format(%4.1f) size(vsmall)) ///
+    graphregion(color(white)) bgcolor(white) ///
+    note("Note: Values show the percentage point difference in Out-of-School rates between girls and boys (ages 5–9)." ///
+	"A positive value means more girls are out of school than boys in that district" ///
+	"Source: PSLM (2018-20)", size(vsmall))
+
+* --- 9. Export ---
+graph export "$Output\oosc_pslm_gender.png", replace width(2400)
+
+
+*===========================================================
+* Third-Party Dataset | Balochistan
+* OOS Girls (%) by District - All Districts
+* School catchment area data collapsed to district level
+*===========================================================
+
+* --- 1. Load data ---
+use "$surveyauto\dashboard.dta", clear      // adjust filename as needed
+
+* --- 2. Collapse to district level ---
+* Sum OOS girls and total girls across all school catchment areas per district
+collapse (sum) OOSCFemale SchoolAgePopulationFemale,  by(district)            
+
+* --- 4. Calculate OOS rate ---
+gen oos_rate_girls = (OOSCFemale / SchoolAgePopulationFemale) * 100
+label var oos_rate_girls "OOS Girls as % of Total Girls"
+label var OOSCFemale      "Total OOS Girls (Count)"
+label var SchoolAgePopulationFemale    "Total Girls School Age Population"
+
+* --- 5. Decode district if numeric, otherwise use as-is ---
+//decode district, gen(district_label)   
+
+* --- 6. Sort by OOS rate descending ---
+gsort -oos_rate_girls
+
+* --- 7. Plot horizontal bar chart ---
+graph hbar oos_rate_girls, over(district, sort(oos_rate_girls) descending ///
+    label(angle(0) labsize(vsmall))) ///
+    bar(1, color("255 127 14")) ///
+    title("Out-of-School Girls (%) by District", size(medium)) ///
+    subtitle("Balochistan | SurveyAuto Data", size(small)) ///
+    ytitle("OOS Girls (% of Total Girls in District)") ///
+    blabel(bar, format(%4.1f) size(vsmall)) ///
+    graphregion(color(white)) bgcolor(white) ///
+    note("Note: Each bar shows the percentage of out-of-school girls in each district," ///
+		"calculated by dividing the total number of OOS girls by the total school-going age" ///
+		"population in that district, summed across all school catchment areas." ///
+		"Source: SurveyAuto Dashboard", size(vsmall))
+
+* --- 8. Export ---
+graph export "$Output\oosc_surveyauto.png", replace width(2400)
