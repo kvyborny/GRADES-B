@@ -119,7 +119,7 @@ import excel "$data\Admin Data\EMIS Data\emis_coordinates_1.xlsx", sheet("main s
 	
 ***Tagging already assessed schools
 	
-	import excel "C:\Users\wb635947\OneDrive - WBG\Jayati Sethi's files - Pakistan GRADES-B\Data\Admin Data\GRADES B\GRADES Latest sheet 3278 schools (2).xlsx", sheet("Sheet1") firstrow clear
+	import excel "C:\Users\wb635947\OneDrive - WBG\Jayati Sethi's files - Pakistan GRADES-B\Data\Admin Data\GRADES B\Round 1\GRADES Latest sheet 3278 schools (2).xlsx", sheet("Sheet1") firstrow clear
 	
 	destring BEMIS, replace
 	rename BEMIS EMISCode 

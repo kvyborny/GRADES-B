@@ -121,7 +121,7 @@ import excel "$data\Admin Data\EMIS Data\Balochistan EMIS Flatsheet 2024-25.xlsx
 	 
 	 rename schoolemiscode EMISCode
 			
-	 merge 1:1 EMISCode using  "$data\Dataset\admin\emis_final_clean.dta", keepusing (SchoolName Latitude Longitude gender Level /*STEPB BHCIP*/)
+	 merge 1:1 EMISCode using  "$data\Dataset\admin\EMIS\emis_final_clean.dta", keepusing (SchoolName Latitude Longitude gender Level /*STEPB BHCIP*/)
 	 /*
 	       Result                      Number of obs
     -----------------------------------------
@@ -143,7 +143,7 @@ import excel "$data\Admin Data\EMIS Data\Balochistan EMIS Flatsheet 2024-25.xlsx
 	
 	keep if enrol_per_room >=40 & gender == "Girls"
 	
-	export delimited using "$data\Dataset\admin\overcrowded_girls_schools.csv", replace // list of overcrowded_girls_schools
+	export delimited using "$data\Dataset\admin\Datasets prepared to share with PMU\overcrowded_girls_schools.csv", replace // list of overcrowded_girls_schools
 	
 	restore 
 	
@@ -235,7 +235,7 @@ import delimited "$data\Dataset\osrm\TE_longlist_high_conf_for_PMU_with_ref_ANYF
 ********************************************************************************
 *Merging with emis clean dataset to get clean coordinates and gender
 *******************************************************************************
-	use "$data\Dataset\admin\emis_final_clean.dta", clear
+	use "$data\Dataset\admin\EMIS\emis_final_clean.dta", clear
 	
 	rename EMISCode schoolemiscode 
 	
@@ -306,7 +306,7 @@ import delimited "$data\Dataset\osrm\TE_longlist_high_conf_for_PMU_with_ref_ANYF
 		
 	keep emiscode SchoolName Level FunctionalStatus Latitude Longitude  ///
 	Location gender District UC Tehsil near_girlcoed_emis near_girlcoed_name ///
-	intervention_ece intervention_dste Shelterless nearby_non_functional non_func_schname non_func_emis
+	intervention_ece intervention_dste Shelterless nearby_non_functional non_func_schname non_func_emis girls* boys*
 	
 	gen master =1
 	
@@ -318,7 +318,15 @@ import delimited "$data\Dataset\osrm\TE_longlist_high_conf_for_PMU_with_ref_ANYF
 *GRADES B 
 ******************************************************************************
 	
-	import excel "$data\Admin Data\GRADES B\GRADES Latest sheet 3278 schools (2).xlsx", sheet("Sheet1") firstrow clear
+	import excel "$data\Admin Data\GRADES B\Round 1\GRADES Latest sheet 3278 schools (2).xlsx", sheet("Sheet1") firstrow clear
+	
+	* Rename girls enrollment
+	rename (BP BQ BR BS BT BU BW BX BY CA CB CC CD) (girls_kachi girls_pakki  girls_g2 )
+
+	* Rename boys enrollment
+	rename (Kachi Class1 Class2 Class3 Class4 Class5 Class6 Class7 Class8 Class9 Class10 Class 11 Class12) (boys_kachi boys_pakki  boys_g2 boys_g3 boys_g4 boys_g5 boys_g6 boys_g7 boys_g8 boys_g9 boys_g10 boys_g11 boys_g12)
+
+	
 	
 	replace Shelterless ="Yes" if Shelterless =="Shelter less" | Shelterless =="shelter less"	
 	replace ECE = "ECE Schools" if ECE =="ECE schools"
@@ -718,7 +726,7 @@ Transport + ECE Schools |        876       12.38      100.00
 	replace intervention="DS_Girls_RTSM" if intervention=="" & intervention_dste =="Double shift" & nearby_non_functional=="Yes" & Shelterless!="Yes" & Doubleshift ==2				//double check 18 observations- not in proximity analysis
 	replace intervention="DS_Girls_RTSM" if Doubleshift ==2 & intervention=="" & (STEPB==1 | BHCIP==1)
 
-	replace intervention="DS Only" if intervention =="DS_Girls_RTSM"			//Just for the longlist to incorporate an intervention from RTSM field assessment - this should be verified
+*	replace intervention="DS Only" if intervention =="DS_Girls_RTSM"			//Just for the longlist to incorporate an intervention from RTSM field assessment - this should be verified
 
 	tab intervention, missing
 /*	
@@ -771,6 +779,7 @@ Transport + ECE Schools |        819       11.57      100.00
 	esttab using "C:\Users\wb635947\OneDrive - WBG\Jayati Sethi's files - Pakistan GRADES-B\Data\Analysis\Misc\district_by_intervention.csv", ///
     cells("b") unstack nonumber nomtitle noobs replace
 	
+	
 	replace UC = strtrim(UC)
 	
 		* Ensure consistent case first
@@ -812,7 +821,7 @@ Transport + ECE Schools |        819       11.57      100.00
 	replace UC = "MANNA" if UC=="MANNA"
 
 	replace UC = "MC NAAL" if inlist(UC,"MC NALL","MC NAAL")
-
+	
 	replace UC = "GADDANI" if inlist(UC,"GADDANI","GADANI TWON","GADANI TOWN")
 
 	replace UC = "HATHYARI" if inlist(UC,"HATHYARI","HATIARY")
@@ -871,7 +880,50 @@ Transport + ECE Schools |        819       11.57      100.00
 
 	replace UC = "ZARKHO" if inlist(UC,"ZARKHO","ZARKHU")
 
+	replace UC = "BADAI" if inlist(UC,"BADAHI","BADAI")
+	
+	replace UC = "BEDAR UNDROON" if inlist(UC,"BEDAR ANDRON","BEDAR UNDROON")
+	
+	replace UC = "FAIZABAD JAMALI" if inlist(UC,"FAIZA ABAD JAMALI","FAIZABAD JAMALI")
+	
+	replace UC = "GANDAR" if inlist(UC,"GANDHAR","GANDAR")
+
+	replace UC = "LAKHORIAN" if inlist(UC,"LAKORIAN","LAKHORIAN")
+	
+	replace UC = "NAAG" if inlist(UC,"NAG","NAAG")
+	
+	replace UC = "NARAZAI" if inlist(UC,"NARAIZAI","NARAZAI", "NAREZAI")
+	
+	replace UC = "NASIRABAD" if inlist(UC,"NASEER ABAD")
+
+	replace UC = "SHORI DRABI ANDROON" if inlist(UC,"SHORI DHARBI ANDROON")
+	
+	replace UC = "TAKRA" if inlist(UC,"TAKHRA")
+	
+	replace UC = "TOMNI" if inlist(UC,"TOMANI")
+	
+	replace UC = "TUKHOI" if inlist(UC,"TUKHAI")
+	
+	replace UC = "YARU-I" if inlist(UC,"YAR0-1")
+	
 	recast str15 UC
+	
+	replace Tehsil = upper(Tehsil)
+	replace Tehsil = trim(Tehsil)
+	
+	gen drop =.
+	encode intervention, gen (interv )
+	drop intervention
+	ren interv intervention
+	gen interv_DS=1 if inlist(intervention, 1,2,3)
+	replace drop = 1 if master ==1 & assessment_done ==1 & interv_DS==1 & Doubleshift==2 & nearby_non_functional !="Yes"
+	*drop if drop==1
+	*keep if master==1 | (assessment_done ==1 & intervention ==4 & master!=1)
+*	keep if master ==1 | intervention ==4
+	gen DS_TE=.
+	tab intervention
+	replace DS_TE=1 if inlist(intervention, 1,2,3,4)
+	replace DS_TE=2 if inlist(intervention, 7,8,9)
 
 	*estpost tab UC ///
 	esttab using "C:\Users\wb635947\OneDrive - WBG\Jayati Sethi's files - Pakistan GRADES-B\Data\Analysis\Misc\schools_by_uc.csv", ///
@@ -881,11 +933,9 @@ Transport + ECE Schools |        819       11.57      100.00
 	esttab using "C:\Users\wb635947\OneDrive - WBG\Jayati Sethi's files - Pakistan GRADES-B\Data\Analysis\Misc\uc_by_intervention.csv", ///
     cells("b") unstack nonumber label nomtitle noobs replace
 	
-	save "$data\Dataset\admin\long_list.dta", replace							//saving .dta file 
-	export delimited using "$data\Dataset\admin\long_list.csv", replace			//saving the csv file
-	
-	drop if assessment_done == 1 
-	
+	save "$data\Dataset\admin\Longlist\long_list.dta", replace							//saving .dta file 
+	export delimited using "$data\Dataset\admin\Longlist\long_list.csv", replace			//saving the csv file
+/*	
 	preserve
 	gen count = 1
 	collapse (sum) count, by(UC) 
@@ -893,8 +943,6 @@ Transport + ECE Schools |        819       11.57      100.00
 	 tab count
 	  graph export "C:\Users\wb635947\OneDrive - WBG\Jayati Sethi's files - Pakistan GRADES-B\Data\Analysis\Misc\schools_by_ucs.png", as(png) name("schools_by_ucs"), replace
 	restore
-	
-	
+	*/
 
-	
 	
