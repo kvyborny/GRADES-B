@@ -165,7 +165,8 @@ graph export "$Output\oosc_pslm_gender.png", replace width(2400)
 *===========================================================
 
 * --- 1. Load data ---
-use "$surveyauto\dashboard.dta", clear      // adjust filename as needed
+use "$surveyauto\dashboard.dta", clear      // adjust filename as needed 
+/*
 
 * --- 2. Collapse to district level ---
 * Sum OOS girls and total girls across all school catchment areas per district
