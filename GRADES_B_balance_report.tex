@@ -1,0 +1,111 @@
+% =============================================================================
+% GRADES-B Impact Evaluation: baseline balance tables (report)
+% -----------------------------------------------------------------------------
+% Overleaf: upload this file together with the three folders that
+% GRADES_B_balance_tables.do creates in its output folder:
+%     3arm/   TvC_girls/   DSvC_boys/
+% Keep the folder names, and put this file at the top level, next to them.
+% Each table file is a plain tabular written by iebaltab (savetex option).
+% =============================================================================
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}        % prints "<" in the table notes correctly
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=2cm]{geometry}
+\usepackage{adjustbox}          % scales each table to fit the page
+\usepackage{pdflscape}          % landscape pages for the wide three-arm tables
+\usepackage{float}              % [H]: keep each table where it is placed
+\usepackage{caption}
+\captionsetup[table]{font=small, labelfont=bf, skip=6pt}
+\usepackage[hidelinks]{hyperref}
+
+% \baltab{file}{caption}{label}: one iebaltab table, scaled to the page
+\newcommand{\baltab}[3]{%
+  \begin{table}[H]
+    \centering
+    \caption{#2}\label{#3}
+    \begin{adjustbox}{max width=\linewidth, max totalheight=0.88\textheight}
+      \input{#1}
+    \end{adjustbox}
+  \end{table}}
+
+\title{GRADES-B Impact Evaluation\\[6pt]
+       \large Baseline balance of IE schools: RTSM school data}
+\author{}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section*{Data and method}
+\begin{itemize}
+  \item \textbf{Sample.} The 307 IE schools, one per cluster: Transport 102,
+        Double shift 102, Comparison 103.
+  \item \textbf{Data.} RTSM school surveys: 127 schools from the Fall 2025
+        pre-assessment and 180 from the February--May 2026 field validation.
+        Each school appears in exactly one round. Only questions asked in both
+        rounds, with the same wording, units and skip logic, are used
+        (57 variables).
+  \item \textbf{Estimation.} Tables are produced with \texttt{iebaltab}. Group
+        columns show the mean with its standard error in parentheses. The
+        difference is the raw difference in means; significance stars come from
+        an OLS regression of the variable on the pair dummy with tehsil fixed
+        effects and robust standard errors (one IE school per cluster, so these
+        equal standard errors clustered by cluster).
+        * $p<0.10$, ** $p<0.05$, *** $p<0.01$.
+  \item \textbf{Comparisons.} Table set 1 compares all IE schools across the
+        three arms. Transport IE schools are all girls' or co-ed schools and
+        Double-shift IE schools are all boys' schools, so set 1 shows
+        differences in gendered variables by design. Sets 2 and 3 compare
+        schools of the same type: Transport vs girls' and co-ed Comparison
+        schools, and Double shift vs boys' Comparison schools.
+  \item \textbf{Joint test.} The last table of each set reports, for each
+        comparison, the p-value of an F-test that 26 variables (those with no
+        missing values and no exact linear dependence) jointly predict the arm.
+\end{itemize}
+
+\listoftables
+
+% -----------------------------------------------------------------------------
+% Table set 1: all IE schools, three arms (wide: landscape pages)
+% -----------------------------------------------------------------------------
+\clearpage
+\begin{landscape}
+\section*{1. All IE schools: Transport vs Double shift vs Comparison}
+\baltab{3arm/bal_3arm_A.tex}{All IE schools, three arms: A. Enrolment}{tab:3arm_A}
+\baltab{3arm/bal_3arm_B.tex}{All IE schools, three arms: B. Teachers}{tab:3arm_B}
+\baltab{3arm/bal_3arm_C.tex}{All IE schools, three arms: C. Rooms and toilets}{tab:3arm_C}
+\baltab{3arm/bal_3arm_D.tex}{All IE schools, three arms: D. Facilities, land and furniture}{tab:3arm_D}
+\baltab{3arm/bal_3arm_E.tex}{All IE schools, three arms: E. Repair and construction needs (recorded by enumerator)}{tab:3arm_E}
+\baltab{3arm/bal_3arm_F.tex}{All IE schools, three arms: F. Management, programmes and data source}{tab:3arm_F}
+\baltab{3arm/bal_3arm_ftest.tex}{All IE schools, three arms: joint F-test (p-values, last row)}{tab:3arm_ftest}
+\end{landscape}
+
+% -----------------------------------------------------------------------------
+% Table set 2: Transport vs girls' and co-ed Comparison schools
+% -----------------------------------------------------------------------------
+\clearpage
+\section*{2. Transport vs girls' and co-ed Comparison schools}
+\baltab{TvC_girls/bal_TvC_girls_A.tex}{Transport vs girls'/co-ed Comparison: A. Enrolment}{tab:tvc_A}
+\baltab{TvC_girls/bal_TvC_girls_B.tex}{Transport vs girls'/co-ed Comparison: B. Teachers}{tab:tvc_B}
+\baltab{TvC_girls/bal_TvC_girls_C.tex}{Transport vs girls'/co-ed Comparison: C. Rooms and toilets}{tab:tvc_C}
+\baltab{TvC_girls/bal_TvC_girls_D.tex}{Transport vs girls'/co-ed Comparison: D. Facilities, land and furniture}{tab:tvc_D}
+\baltab{TvC_girls/bal_TvC_girls_E.tex}{Transport vs girls'/co-ed Comparison: E. Repair and construction needs (recorded by enumerator)}{tab:tvc_E}
+\baltab{TvC_girls/bal_TvC_girls_F.tex}{Transport vs girls'/co-ed Comparison: F. Management, programmes and data source}{tab:tvc_F}
+\baltab{TvC_girls/bal_TvC_girls_ftest.tex}{Transport vs girls'/co-ed Comparison: joint F-test (p-value, last row)}{tab:tvc_ftest}
+
+% -----------------------------------------------------------------------------
+% Table set 3: Double shift vs boys' Comparison schools
+% -----------------------------------------------------------------------------
+\clearpage
+\section*{3. Double shift vs boys' Comparison schools}
+\baltab{DSvC_boys/bal_DSvC_boys_A.tex}{Double shift vs boys' Comparison: A. Enrolment}{tab:dsvc_A}
+\baltab{DSvC_boys/bal_DSvC_boys_B.tex}{Double shift vs boys' Comparison: B. Teachers}{tab:dsvc_B}
+\baltab{DSvC_boys/bal_DSvC_boys_C.tex}{Double shift vs boys' Comparison: C. Rooms and toilets}{tab:dsvc_C}
+\baltab{DSvC_boys/bal_DSvC_boys_D.tex}{Double shift vs boys' Comparison: D. Facilities, land and furniture}{tab:dsvc_D}
+\baltab{DSvC_boys/bal_DSvC_boys_E.tex}{Double shift vs boys' Comparison: E. Repair and construction needs (recorded by enumerator)}{tab:dsvc_E}
+\baltab{DSvC_boys/bal_DSvC_boys_F.tex}{Double shift vs boys' Comparison: F. Management, programmes and data source}{tab:dsvc_F}
+\baltab{DSvC_boys/bal_DSvC_boys_ftest.tex}{Double shift vs boys' Comparison: joint F-test (p-value, last row)}{tab:dsvc_ftest}
+
+\end{document}
