@@ -12,14 +12,18 @@
                   GRADES Latest sheet 3278 schools (2).xlsx, Sheet1
               - May 2026 field validation (180 schools)
                   GRADES_B Baseline Phase two V.3.xlsx, first sheet
+                  (labelled, de-duplicated Kobo export; 3,619 schools)
             Only questions asked in BOTH rounds, with the same wording, units
-            and skip logic, are used.
+            and skip logic, are used (see the "Variable definitions" and
+            "Excluded questions" sheets of GRADES_B_balance_RESULTS.xlsx).
 
   Method  : iebaltab (ietoolkit v7+). Difference = raw difference in means;
-            p-values from OLS of the variable on the pair dummy with
-            randomization-stratum fixed effects and robust SEs (one school
-            per cluster, so robust = clustered at the cluster level). Strata =
-            "Stratum" column of Schools List for IE.xlsx (45 strata).
+            p-values from OLS of the variable on the pair dummy with tehsil
+            fixed effects (the IE school's tehsil in the PMU IE list, 41
+            tehsils) and robust SEs (one school per cluster, so robust =
+            clustered at the cluster level; cluster fixed effects are not
+            possible for the same reason). Set global fe below to
+            "district_fe" to use district fixed effects (12) instead.
             Column order Transport (1), Double shift (2), Comparison (3), so
             pairs read T-DS, T-C, DS-C.
 
@@ -51,12 +55,11 @@ global baldir    "${grades}\Analysis\Balance tables"
 global out       "${baldir}\output"
 
 global ie_list   "${grades}\Randomized\IE_school_list_for_PMU_DRAFT.xlsx"
-global strata    "${grades}\Randomized\IE_school_list_for_PMU_DRAFT.xlsx"
 global fall_rtsm "${grades}\Admin Data\GRADES B\Round 1\GRADES Latest sheet 3278 schools (2).xlsx"
 global may_rtsm  "${grades}\Admin Data\GRADES B\Round 2\Data\GRADES_B Baseline Phase two V.3.xlsx"
 
-* fixed effects for the balance regressions: tehsil 
-global fe tehsil_fe
+* fixed effects for the balance regressions: tehsil_fe (default) or district_fe
+global fe "tehsil_fe"
 
 capture mkdir "${out}"
 foreach d in 3arm TvC_girls DSvC_boys {
@@ -69,6 +72,11 @@ if _rc ssc install ietoolkit, replace
 *------------------------------------------------------------------------------
 * Helper programs
 *------------------------------------------------------------------------------
+* Header checks. Some Excel headers contain line breaks (Alt+Enter) or double
+* spaces, e.g. Fall column DG is "8.1) Total No<line break> of Kacha Rooms?".
+* Line breaks are turned into spaces and repeated spaces collapsed before
+* comparing.
+
 * chkhdr: stop unless the header (row 1) of column `col' contains `phrase'
 capture program drop chkhdr
 program define chkhdr
@@ -78,7 +86,7 @@ program define chkhdr
         di as error "Column `col' not found in the imported sheet"
         exit 111
     }
-    if strpos(lower(`col'[1]), lower("`phrase'")) == 0 {
+    if strpos(lower(strtrim(itrim(subinstr(subinstr(`col'[1], char(10), " ", .), char(13), " ", .)))), lower("`phrase'")) == 0 {
         di as error "Header check failed: column `col' does not contain [`phrase']"
         exit 9
     }
@@ -88,7 +96,7 @@ end
 capture program drop chkexact
 program define chkexact
     args col text
-    if strtrim(itrim(`col'[1])) != "`text'" {
+    if strtrim(itrim(subinstr(subinstr(`col'[1], char(10), " ", .), char(13), " ", .))) != "`text'" {
         di as error "Header check failed: column `col' is not [`text']"
         exit 9
     }
@@ -123,6 +131,7 @@ program define num
 end
 
 * grades: enrolment by grade (Kachi, Class 1-12) for one sex; blank = 0
+*         (May form skips Classes 6-12 in primary schools)
 capture program drop grades
 program define grades
     args prefix cols
@@ -146,22 +155,23 @@ program define chkgrades
     }
 end
 
-*------------------------------------------------------------------------------
-* 1. IE school list (307 schools, one per cluster) + randomization strata
-*------------------------------------------------------------------------------
-* Strata are not in the PMU list. 
-import excel using "${strata}", sheet("IE schools") clear allstring 
-chkhdr F "Cluster ID"
-chkhdr D "Tehsil"
-drop in 1
-gen cluster_id  = real(B)
-keep cluster_id 
-drop if missing(cluster_id)
-*duplicates drop
-isid cluster_id
-tempfile strata
-save `strata'
+* savemat: iebaltab can display only one statistic per comparison in the table
+*         (we display the difference with stars). It stores all of them in
+*         r(iebtab_rmat) / r(iebtab_fmat): N, mean, SE per group; diff, N, beta,
+*         t, p, SE per comparison; F-test. Copy them to balR / balF right after
+*         iebaltab, then call savemat to write them to Excel.
+capture program drop savemat
+program define savemat
+    args file
+    putexcel set "`file'", sheet("all stats") replace
+    putexcel A1 = matrix(balR), names
+    putexcel set "`file'", sheet("F-test") modify
+    putexcel A1 = matrix(balF), names
+end
 
+*------------------------------------------------------------------------------
+* 1. IE school list (307 schools, one per cluster), arms, district and tehsil
+*------------------------------------------------------------------------------
 import excel using "${ie_list}", sheet("IE schools") clear allstring
 chkhdr A "Group"
 chkhdr C "District"
@@ -184,8 +194,6 @@ isid bemis
 isid cluster_id
 assert _N == 307
 
-merge 1:1 cluster_id using `strata' 
-
 gen     arm = 1 if group_str == "Transport"
 replace arm = 2 if group_str == "Double shift"
 replace arm = 3 if group_str == "Comparison"
@@ -194,9 +202,12 @@ label define arm 1 "Transport" 2 "Double shift" 3 "Comparison"
 label values arm arm
 label var arm "Randomized arm"
 
+encode district, gen(district_fe)
+label var district_fe "District of the IE school (alternative fixed effects)"
+
 gen tehsil_str = district + " | " + tehsil
 encode tehsil_str, gen(tehsil_fe)
-label var tehsil_fe "Tehsil of the IE school (alternative fixed effects)"
+label var tehsil_fe "Tehsil of the IE school (fixed effects)"
 
 gen girls_coed = (gender != "Boys")
 label define girls_coed 0 "Boys' school" 1 "Girls'/co-ed school"
@@ -239,14 +250,14 @@ chkhdr ER  "is Electricity available in the area"
 chkhdr DB  "Teachers Posted"
 chkhdr DC  "teachers trained on ECE"
 chkhdr DD  "teachers trained on induction"
-chkhdr DG  "8.1) Total No"
-chkhdr DH  "8.1) Total No"
-chkhdr DI  "8.2) No. of Functional"
-chkhdr DJ  "8.2) No. of Functional"
-chkhdr DK  "8.3) No. of Non-FunctionalKacha Rooms?"
-chkhdr DL  "8.3) No. of Non-Functional"
-chkhdr DO  "8.5) Total No. of Boys Toilets"
-chkhdr DP  "8.5) Total No. of Girls Toilets"
+chkhdr DG  "Total No of Kacha Rooms"
+chkhdr DH  "Total No of Pakka Rooms"
+chkhdr DI  "Functional Kacha Rooms"
+chkhdr DJ  "Functional Pakka Rooms"
+chkhdr DK  "Kacha Rooms"
+chkhdr DL  "Non-Functional Pakka Rooms"
+chkhdr DO  "Total No. of Boys Toilets"
+chkhdr DP  "Total No. of Girls Toilets"
 chkhdr DY  "additional rooms needed to be constructed"
 chkhdr DZ  "rooms that need repair"
 chkhdr EA  "additional toilets needed to be constructed"
@@ -658,40 +669,64 @@ save "${out}/grades_b_balance_data.dta", replace
 *------------------------------------------------------------------------------
 * 6. Balance tables
 *------------------------------------------------------------------------------
-local opts grpvar(arm) fixedeffect(${fe}) vce(robust) ///
-    stats(desc(se) pair(diff p)) rowvarlabels nonote replace
+* iebaltab v7 shows ONE statistic per comparison: stats(... pair(diff)) shows the
+* difference in means with significance stars. p-values and N per comparison are
+* written to the matching *_allstats.xlsx file (columns p_1_2, n_1_2, etc.).
+local opts groupvar(arm) fixedeffect(${fe}) vce(robust) ///
+    stats(desc(se) pair(diff)) rowvarlabels nonote replace
+* F-test tables: same, but the F-test row shows its p-value instead of the F statistic
+local optsF groupvar(arm) fixedeffect(${fe}) vce(robust) ///
+    stats(desc(se) pair(diff) f(p)) rowvarlabels nonote replace
 
-local note3 "Robust standard errors in parentheses. Differences are raw differences in means; p-values from OLS of each variable on the pair dummy with randomization-stratum fixed effects and robust standard errors. One IE school per cluster."
-if "${fe}" == "tehsil_fe" local note3 : subinstr local note3 "randomization-stratum fixed effects" "tehsil fixed effects"
+local note3 "Robust standard errors in parentheses. Differences are raw differences in means. Stars from OLS of each variable on the pair dummy with tehsil fixed effects and robust standard errors: * p<0.10, ** p<0.05, *** p<0.01. One IE school per cluster."
+if "${fe}" == "district_fe" local note3 : subinstr local note3 "tehsil fixed effects" "district fixed effects"
 
 * (1) All IE schools, three arms
 foreach p in A B C D E F {
     iebaltab ${bal_`p'}, `opts' order(1 2 3)                     ///
         savexlsx("${out}/3arm/bal_3arm_`p'.xlsx")                 ///
         savetex("${out}/3arm/bal_3arm_`p'.tex") addnote("`note3'")
+    mat balR = r(iebtab_rmat)
+    mat balF = r(iebtab_fmat)
+    savemat "${out}/3arm/bal_3arm_`p'_allstats.xlsx"
 }
-iebaltab ${ftest_vars}, `opts' order(1 2 3) ftest                 ///
+iebaltab ${ftest_vars}, `optsF' order(1 2 3) ftest                 ///
     savexlsx("${out}/3arm/bal_3arm_ftest.xlsx")                   ///
     savetex("${out}/3arm/bal_3arm_ftest.tex") addnote("`note3'")
+mat balR = r(iebtab_rmat)
+mat balF = r(iebtab_fmat)
+savemat "${out}/3arm/bal_3arm_ftest_allstats.xlsx"
 
 * (2) Like-for-like: Transport vs girls'/co-ed Comparison schools
 foreach p in A B C D E F {
     iebaltab ${bal_`p'} if girls_coed == 1 & inlist(arm, 1, 3), `opts' ///
         savexlsx("${out}/TvC_girls/bal_TvC_girls_`p'.xlsx")             ///
         savetex("${out}/TvC_girls/bal_TvC_girls_`p'.tex") addnote("`note3'")
+    mat balR = r(iebtab_rmat)
+    mat balF = r(iebtab_fmat)
+    savemat "${out}/TvC_girls/bal_TvC_girls_`p'_allstats.xlsx"
 }
-iebaltab ${ftest_vars} if girls_coed == 1 & inlist(arm, 1, 3), `opts' ftest ///
+iebaltab ${ftest_vars} if girls_coed == 1 & inlist(arm, 1, 3), `optsF' ftest ///
     savexlsx("${out}/TvC_girls/bal_TvC_girls_ftest.xlsx")                   ///
     savetex("${out}/TvC_girls/bal_TvC_girls_ftest.tex") addnote("`note3'")
+mat balR = r(iebtab_rmat)
+mat balF = r(iebtab_fmat)
+savemat "${out}/TvC_girls/bal_TvC_girls_ftest_allstats.xlsx"
 
 * (3) Like-for-like: Double shift vs boys' Comparison schools
 foreach p in A B C D E F {
     iebaltab ${bal_`p'} if girls_coed == 0 & inlist(arm, 2, 3), `opts' ///
         savexlsx("${out}/DSvC_boys/bal_DSvC_boys_`p'.xlsx")             ///
         savetex("${out}/DSvC_boys/bal_DSvC_boys_`p'.tex") addnote("`note3'")
+    mat balR = r(iebtab_rmat)
+    mat balF = r(iebtab_fmat)
+    savemat "${out}/DSvC_boys/bal_DSvC_boys_`p'_allstats.xlsx"
 }
-iebaltab ${ftest_vars} if girls_coed == 0 & inlist(arm, 2, 3), `opts' ftest ///
+iebaltab ${ftest_vars} if girls_coed == 0 & inlist(arm, 2, 3), `optsF' ftest ///
     savexlsx("${out}/DSvC_boys/bal_DSvC_boys_ftest.xlsx")                   ///
     savetex("${out}/DSvC_boys/bal_DSvC_boys_ftest.tex") addnote("`note3'")
+mat balR = r(iebtab_rmat)
+mat balF = r(iebtab_fmat)
+savemat "${out}/DSvC_boys/bal_DSvC_boys_ftest_allstats.xlsx"
 
 di as result "Done. Tables saved in ${out}"
