@@ -729,4 +729,126 @@ mat balR = r(iebtab_rmat)
 mat balF = r(iebtab_fmat)
 savemat "${out}/DSvC_boys/bal_DSvC_boys_ftest_allstats.xlsx"
 
-di as result "Done. Tables saved in ${out}"
+*------------------------------------------------------------------------------
+* 7. All balance results in ONE Excel file: ${out}/GRADES_B_balance_ALL.xlsx
+*    Sheets "1 Three arms", "2 T vs C girls-coed", "3 DS vs C boys": one row per
+*    variable (all 57) with N, mean, SE per group and difference, p-value, N per
+*    comparison. Sheet "F-tests": N, F and p-value of each joint F-test.
+*------------------------------------------------------------------------------
+global allvars ${bal_A} ${bal_B} ${bal_C} ${bal_D} ${bal_E} ${bal_F}
+global onefile "${out}/GRADES_B_balance_ALL.xlsx"
+capture erase "${onefile}"
+
+* xlsheet: writes the last iebaltab result (copied to matrix balR) to one sheet
+*   groups(): group codes in the table, e.g. "1 2 3"
+*   pairs():  comparisons, e.g. "1_2 1_3 2_3" (1 Transport, 2 Double shift, 3 Comparison)
+capture program drop xlsheet
+program define xlsheet
+    syntax, sheet(string) groups(string) pairs(string)
+    local vars : rownames balR
+    local nv   : word count `vars'
+    forvalues i = 1/`nv' {
+        local v : word `i' of `vars'
+        local lab`i' : variable label `v'
+    }
+    foreach g of local groups {
+        local gname`g' : label arm `g'
+    }
+    local sn_n    "N"
+    local sn_mean "Mean"
+    local sn_se   "SE"
+    local sn_diff "Difference"
+    local sn_p    "p-value"
+    preserve
+    clear
+    quietly set obs `nv'
+    quietly gen str32  variable = ""
+    quietly gen str244 varlabel = ""
+    forvalues i = 1/`nv' {
+        quietly replace variable = "`: word `i' of `vars''" in `i'
+        quietly replace varlabel = `"`lab`i''"' in `i'
+    }
+    label var variable "Variable"
+    label var varlabel "Label"
+    foreach g of local groups {
+        foreach s in n mean se {
+            quietly gen double `s'_`g' = .
+            local c = colnumb(balR, "`s'_`g'")
+            forvalues i = 1/`nv' {
+                quietly replace `s'_`g' = el(balR, `i', `c') in `i'
+            }
+            label var `s'_`g' "`gname`g'': `sn_`s''"
+        }
+    }
+    foreach p of local pairs {
+        local g1 = substr("`p'", 1, 1)
+        local g2 = substr("`p'", 3, 1)
+        foreach s in diff p n {
+            quietly gen double `s'_`p' = .
+            local c = colnumb(balR, "`s'_`p'")
+            forvalues i = 1/`nv' {
+                quietly replace `s'_`p' = el(balR, `i', `c') in `i'
+            }
+            label var `s'_`p' "`gname`g1'' - `gname`g2'': `sn_`s''"
+        }
+    }
+    export excel using "${onefile}", sheet("`sheet'") sheetreplace firstrow(varlabels)
+    restore
+end
+
+* frow: fills one row of the F-test sheet from an iebaltab F-test matrix
+capture program drop frow
+program define frow
+    args r m pr tbl cmp
+    quietly replace table      = "`tbl'" in `r'
+    quietly replace comparison = "`cmp'" in `r'
+    quietly replace N      = el(`m', 1, colnumb(`m', "fn_`pr'")) in `r'
+    quietly replace F      = el(`m', 1, colnumb(`m', "ff_`pr'")) in `r'
+    quietly replace pvalue = el(`m', 1, colnumb(`m', "fp_`pr'")) in `r'
+end
+
+local est groupvar(arm) fixedeffect(${fe}) vce(robust)
+
+* balance tables: all variables, one sheet each
+iebaltab ${allvars}, `est' order(1 2 3)
+mat balR = r(iebtab_rmat)
+xlsheet, sheet("1 Three arms") groups("1 2 3") pairs("1_2 1_3 2_3")
+
+iebaltab ${allvars} if girls_coed == 1 & inlist(arm, 1, 3), `est'
+mat balR = r(iebtab_rmat)
+xlsheet, sheet("2 T vs C girls-coed") groups("1 3") pairs("1_3")
+
+iebaltab ${allvars} if girls_coed == 0 & inlist(arm, 2, 3), `est'
+mat balR = r(iebtab_rmat)
+xlsheet, sheet("3 DS vs C boys") groups("2 3") pairs("2_3")
+
+* joint F-tests
+iebaltab ${ftest_vars}, `est' order(1 2 3) ftest
+mat F1 = r(iebtab_fmat)
+iebaltab ${ftest_vars} if girls_coed == 1 & inlist(arm, 1, 3), `est' ftest
+mat F2 = r(iebtab_fmat)
+iebaltab ${ftest_vars} if girls_coed == 0 & inlist(arm, 2, 3), `est' ftest
+mat F3 = r(iebtab_fmat)
+
+preserve
+clear
+quietly set obs 5
+gen str40 table      = ""
+gen str40 comparison = ""
+gen double N      = .
+gen double F      = .
+gen double pvalue = .
+frow 1 F1 1_2 "1 Three arms"        "Transport - Double shift"
+frow 2 F1 1_3 "1 Three arms"        "Transport - Comparison"
+frow 3 F1 2_3 "1 Three arms"        "Double shift - Comparison"
+frow 4 F2 1_3 "2 T vs C girls-coed" "Transport - Comparison"
+frow 5 F3 2_3 "3 DS vs C boys"      "Double shift - Comparison"
+label var table      "Table"
+label var comparison "Comparison"
+label var N          "N (schools in the F-test)"
+label var F          "F statistic"
+label var pvalue     "p-value"
+export excel using "${onefile}", sheet("F-tests") sheetreplace firstrow(varlabels)
+restore
+
+di as result "Done. Tables saved in ${out}; all results in one file: ${onefile}"
